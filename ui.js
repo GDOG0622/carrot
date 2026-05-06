@@ -15,7 +15,7 @@ export function createUI() {
         'cip-frosted-glass',
         `
         <nav id="cip-panel-tabs">
-            <button class="cip-tab-button active" data-tab="text">文字信息</button>
+            <button class="cip-tab-button active" data-tab="text">文字</button>
             <button class="cip-tab-button" data-tab="voice">语音</button>
             <button class="cip-tab-button" data-tab="wallet">钱包</button>
             <button class="cip-tab-button" data-tab="stickers">表情包</button>
@@ -23,7 +23,7 @@ export function createUI() {
         <div id="cip-format-display"></div>
         <div id="cip-panel-content">
              <div id="cip-text-content" class="cip-content-section">
-                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="post">帖子</button><button class="cip-sub-option-btn" data-type="bunny">BUNNY</button></div>
+                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="post">帖子</button><button class="cip-sub-option-btn" data-type="bunny">BUNNY</button></div>
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>
