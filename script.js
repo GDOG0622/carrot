@@ -304,7 +304,7 @@
         },
         voice: '={duration}|{message}=',
         wallet: '[{platform}|{amount}|{message}]',
-        stickers: '"[{desc}]"',
+        stickers: '“[{desc}]”',
         recall: '--',
     };
 
