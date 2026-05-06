@@ -1,14 +1,9 @@
 {
   "name": "carrot-input-panel",
   "display_name": "兔子不吃胡萝卜",
-  "version": "6.2",
-  "manifest_version": 6,
-  "description": "去掉了userchar气泡",
+  "version": "7.0",
+  "manifest_version": 7,
+  "description": "胡萝卜快速输入面板 v7 - 翻新版",
   "js": ["script.js"],
   "css": ["style.css"]
 }
-
-
-
-
-

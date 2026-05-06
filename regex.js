@@ -1,7 +1,7 @@
+import { getSettings, saveSettings } from './config.js';
+
 const STORAGE_KEY = 'cip_regex_enabled_v1';
 const RULE_SETTINGS_KEY = 'cip_regex_rule_settings_v1';
-const CUSTOM_RULES_KEY = 'cip_regex_custom_rules_v1';
-const REGEX_PROFILES_KEY = 'cip_regex_profiles_v1';
 const DEFAULT_REGEX_ENABLED = true;
 const originalContentMap = new WeakMap();
 
@@ -350,8 +350,6 @@ function resolveCustomReplacement({
 }
 
 let cachedRuleSettings = null;
-let cachedCustomRules = null;
-let cachedProfileStore = null;
 
 function normalizeFlags(flags = 'g') {
     const raw = typeof flags === 'string' ? flags : '';
@@ -389,138 +387,8 @@ function parsePatternInput(input, fallbackFlags = 'gm') {
     return { source, flags };
 }
 
-function sanitizeCustomRule(raw) {
-    if (!raw || typeof raw !== 'object') return null;
-    const parsed =
-        parsePatternInput(raw.patternSource, raw.flags || 'gm') ||
-        parsePatternInput(raw.pattern, raw.flags || 'gm');
-    if (!parsed) return null;
-
-    const replacement =
-        typeof raw.defaultReplacement === 'string' ? raw.defaultReplacement : '';
-    const id =
-        typeof raw.id === 'string' && raw.id.trim()
-            ? raw.id.trim()
-            : `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const name =
-        typeof raw.name === 'string' && raw.name.trim()
-            ? raw.name.trim()
-            : '自定义正则';
-    return {
-        id,
-        name,
-        patternSource: parsed.source,
-        flags: parsed.flags,
-        defaultReplacement: replacement,
-        isCustom: true,
-    };
-}
-
-function normalizeCustomRuleList(rawList = []) {
-    const unique = new Map();
-    for (const raw of rawList) {
-        const normalized = sanitizeCustomRule(raw);
-        if (!normalized || unique.has(normalized.id)) continue;
-        unique.set(normalized.id, normalized);
-    }
-    return Array.from(unique.values());
-}
-
-function loadCustomRuleDefinitions() {
-    if (cachedCustomRules) return cachedCustomRules;
-    try {
-        if (typeof localStorage === 'undefined') {
-            cachedCustomRules = [];
-            return cachedCustomRules;
-        }
-        const raw = localStorage.getItem(CUSTOM_RULES_KEY);
-        if (!raw) {
-            cachedCustomRules = [];
-            return cachedCustomRules;
-        }
-        const parsed = JSON.parse(raw);
-        cachedCustomRules = normalizeCustomRuleList(parsed);
-        return cachedCustomRules;
-    } catch (error) {
-        console.warn('胡萝卜插件：读取自定义正则失败', error);
-        cachedCustomRules = [];
-        return cachedCustomRules;
-    }
-}
-
-function persistCustomRuleDefinitions(list) {
-    cachedCustomRules = normalizeCustomRuleList(list);
-    cachedRuleSettings = null;
-    try {
-        if (typeof localStorage === 'undefined') return;
-        localStorage.setItem(CUSTOM_RULES_KEY, JSON.stringify(cachedCustomRules));
-    } catch (error) {
-        console.warn('胡萝卜插件：写入自定义正则失败', error);
-    }
-}
-
-function normalizeProfileStore(raw) {
-    const base = { active: '', profiles: {} };
-    if (!raw || typeof raw !== 'object') return base;
-    const store = {
-        active: typeof raw.active === 'string' ? raw.active : '',
-        profiles: {},
-    };
-    if (raw.profiles && typeof raw.profiles === 'object') {
-        for (const [name, entry] of Object.entries(raw.profiles)) {
-            if (typeof name !== 'string' || !name.trim()) continue;
-            const trimmed = name.trim();
-            const ruleSettings = normalizeRuleSettings(entry?.ruleSettings);
-            const customRules = normalizeCustomRuleList(entry?.customRules || []);
-            const enabled =
-                typeof entry?.enabled === 'boolean'
-                    ? entry.enabled
-                    : DEFAULT_REGEX_ENABLED;
-            store.profiles[trimmed] = {
-                name: trimmed,
-                ruleSettings,
-                customRules,
-                enabled,
-            };
-        }
-    }
-    return store;
-}
-
-function loadProfileStore() {
-    if (cachedProfileStore) return cachedProfileStore;
-    try {
-        if (typeof localStorage === 'undefined') {
-            cachedProfileStore = { active: '', profiles: {} };
-            return cachedProfileStore;
-        }
-        const raw = localStorage.getItem(REGEX_PROFILES_KEY);
-        if (!raw) {
-            cachedProfileStore = { active: '', profiles: {} };
-            return cachedProfileStore;
-        }
-        const parsed = JSON.parse(raw);
-        cachedProfileStore = normalizeProfileStore(parsed);
-        return cachedProfileStore;
-    } catch (error) {
-        console.warn('胡萝卜插件：读取正则配置预设失败', error);
-        cachedProfileStore = { active: '', profiles: {} };
-        return cachedProfileStore;
-    }
-}
-
-function persistProfileStore(store) {
-    cachedProfileStore = normalizeProfileStore(store);
-    try {
-        if (typeof localStorage === 'undefined') return;
-        localStorage.setItem(REGEX_PROFILES_KEY, JSON.stringify(cachedProfileStore));
-    } catch (error) {
-        console.warn('胡萝卜插件：写入正则配置预设失败', error);
-    }
-}
-
 function getAllRules() {
-    return [...REGEX_RULES, ...loadCustomRuleDefinitions()];
+    return REGEX_RULES;
 }
 
 function getDefaultRuleSettings() {
@@ -562,35 +430,14 @@ function normalizeRuleSettings(raw) {
 }
 
 function loadRuleSettingsFromStorage() {
-    if (cachedRuleSettings) return cachedRuleSettings;
-    try {
-        if (typeof localStorage === 'undefined') {
-            cachedRuleSettings = getDefaultRuleSettings();
-            return cachedRuleSettings;
-        }
-        const raw = localStorage.getItem(RULE_SETTINGS_KEY);
-        if (!raw) {
-            cachedRuleSettings = getDefaultRuleSettings();
-            return cachedRuleSettings;
-        }
-        const parsed = JSON.parse(raw);
-        cachedRuleSettings = normalizeRuleSettings(parsed);
-        return cachedRuleSettings;
-    } catch (error) {
-        console.warn('胡萝卜插件：读取正则规则配置失败', error);
-        cachedRuleSettings = getDefaultRuleSettings();
-        return cachedRuleSettings;
-    }
+    cachedRuleSettings = normalizeRuleSettings(getSettings().regexRuleSettings);
+    return cachedRuleSettings;
 }
 
 function persistRuleSettings(settings) {
     cachedRuleSettings = normalizeRuleSettings(settings);
-    try {
-        if (typeof localStorage === 'undefined') return;
-        localStorage.setItem(RULE_SETTINGS_KEY, JSON.stringify(cachedRuleSettings));
-    } catch (error) {
-        console.warn('胡萝卜插件：写入正则规则配置失败', error);
-    }
+    getSettings().regexRuleSettings = cachedRuleSettings;
+    saveSettings();
 }
 
 function getRuleSettingsWithDefaults() {
@@ -816,12 +663,7 @@ function restoreOriginal(element) {
 
 export function getRegexEnabled() {
     try {
-        if (typeof localStorage === 'undefined') {
-            return DEFAULT_REGEX_ENABLED;
-        }
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored === null) return DEFAULT_REGEX_ENABLED;
-        return stored === 'true';
+        return getSettings().regexEnabled !== false;
     } catch (error) {
         console.warn('胡萝卜插件：读取正则开关失败', error);
         return DEFAULT_REGEX_ENABLED;
@@ -830,61 +672,13 @@ export function getRegexEnabled() {
 
 export function setRegexEnabled(enabled) {
     try {
-        if (typeof localStorage === 'undefined') return;
-        localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
+        getSettings().regexEnabled = enabled ? true : false;
+        saveSettings();
     } catch (error) {
         console.warn('胡萝卜插件：写入正则开关失败', error);
     }
 }
-
-export function getRegexProfiles() {
-    const store = loadProfileStore();
-    return Object.values(store.profiles).map((item) => ({
-        name: item.name,
-        isActive: store.active === item.name,
-    }));
-}
-
-export function getActiveRegexProfile() {
-    const store = loadProfileStore();
-    return store.active || '';
-}
-
-export function saveRegexProfile(name) {
-    const trimmed = typeof name === 'string' ? name.trim() : '';
-    if (!trimmed) return getRegexProfiles();
-
-    const store = loadProfileStore();
-    store.profiles[trimmed] = {
-        name: trimmed,
-        enabled: getRegexEnabled(),
-        ruleSettings: getRuleSettingsWithDefaults(),
-        customRules: loadCustomRuleDefinitions(),
-    };
-    store.active = trimmed;
-    persistProfileStore(store);
-    return getRegexProfiles();
-}
-
-export function applyRegexProfile(name) {
-    const trimmed = typeof name === 'string' ? name.trim() : '';
-    if (!trimmed) return false;
-
-    const store = loadProfileStore();
-    const profile = store.profiles?.[trimmed];
-    if (!profile) return false;
-
-    setRegexEnabled(
-        typeof profile.enabled === 'boolean'
-            ? profile.enabled
-            : DEFAULT_REGEX_ENABLED,
-    );
-    persistCustomRuleDefinitions(profile.customRules || []);
-    persistRuleSettings(profile.ruleSettings || {});
-    store.active = trimmed;
-    persistProfileStore(store);
-    return true;
-}
+
 
 function createReplacementNode({
     rule,
@@ -974,45 +768,6 @@ export function resetAllRegexRuleSettings() {
     const defaults = getDefaultRuleSettings();
     setRegexRuleSettings(defaults);
     return defaults;
-}
-
-export function addCustomRegexRule({ name, pattern, replacement = '' } = {}) {
-    const prepared = sanitizeCustomRule({
-        id: '',
-        name,
-        patternSource: typeof pattern === 'string' ? pattern.trim() : '',
-        defaultReplacement:
-            typeof replacement === 'string' ? replacement : `${replacement ?? ''}`,
-    });
-    if (!prepared) {
-        throw new Error('无效的正则定义');
-    }
-    const current = loadCustomRuleDefinitions();
-    const next = [...current, prepared];
-    persistCustomRuleDefinitions(next);
-    const settings = getRuleSettingsWithDefaults();
-    persistRuleSettings({
-        ...settings,
-        [prepared.id]: {
-            enabled: true,
-            pattern: prepared.patternSource,
-            replacement: prepared.defaultReplacement || '',
-            flags: prepared.flags || 'g',
-        },
-    });
-    return prepared;
-}
-
-export function removeCustomRegexRule(ruleId) {
-    if (!ruleId) return false;
-    const current = loadCustomRuleDefinitions();
-    const next = current.filter((rule) => rule.id !== ruleId);
-    if (next.length === current.length) return false;
-    persistCustomRuleDefinitions(next);
-    const settings = getRuleSettingsWithDefaults();
-    const { [ruleId]: _, ...rest } = settings;
-    persistRuleSettings(rest);
-    return true;
 }
 
 export function getRegexRulesForUI() {
@@ -1113,18 +868,12 @@ export function applyRegexReplacements(element, options = {}) {
 export default {
     applyRegexReplacements,
     getRegexEnabled,
-    setRegexEnabled,
-    getRegexProfiles,
-    saveRegexProfile,
-    applyRegexProfile,
-    getActiveRegexProfile,
+    setRegexEnabled,
     getRegexRuleSettings,
     setRegexRuleSettings,
     updateRegexRuleSetting,
     resetRegexRuleSetting,
-    resetAllRegexRuleSettings,
-    addCustomRegexRule,
-    removeCustomRegexRule,
+    resetAllRegexRuleSettings,
     getRegexRulesForUI,
 };
 
