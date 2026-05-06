@@ -294,11 +294,11 @@
         selectedSticker = null;
     const formatTemplates = {
         text: {
-            plain: '"{content}"',
-            image: '"[{content}.jpg]"',
-            video: '"[{content}.mp4]"',
-            music: '"[{content}.mp3]"',
-            post: '"[{content}.link]"',
+            plain: '“{content}”',
+            image: '“[{content}.jpg]”',
+            video: '“[{content}.mp4]”',
+            music: '“[{content}.mp3]”',
+            post: '"[{content}.link]”',
             bunny: "+{content}+",
         },
         voice: '={duration}|{message}=',
