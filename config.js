@@ -5,10 +5,13 @@ import {
 import { extension_settings } from '/scripts/extensions.js';
 
 export const EXT_KEY = 'carrot';
+export const DEFAULT_FLOAT_ICON_URL = 'https://i.postimg.cc/C14JNPMH/7564kz.jpg';
 
 const DEFAULT_SETTINGS = {
     floatVisible: true,
     floatIconUrl: '',
+    floatSize: 30,
+    floatOpacity: 1,
     regexEnabled: true,
     stickerData: {},
     themeData: {},
@@ -40,6 +43,8 @@ const legacyDefinitions = {
     cip_regex_rule_settings_v1: ['regexRuleSettings', parseJson, stringifyJson],
     cip_float_visible_v1: ['floatVisible', parseBoolean, stringifyBoolean],
     cip_float_icon_v1: ['floatIconUrl', parseString, stringifyString],
+    cip_float_size_v1: ['floatSize', parseNumber, stringifyString],
+    cip_float_opacity_v1: ['floatOpacity', parseNumber, stringifyString],
     cip_notif_sounds_v1: ['notifSounds', parseJson, stringifyJson],
     cip_notif_success_v1: ['notifSuccess', parseString, stringifyString],
     cip_notif_fail_v1: ['notifFail', parseString, stringifyString],
@@ -79,6 +84,11 @@ function stringifyBoolean(value) {
     return value ? 'true' : 'false';
 }
 
+function parseNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function clone(value) {
     if (value === undefined) return undefined;
     return JSON.parse(JSON.stringify(value));
@@ -90,6 +100,12 @@ function sameValue(left, right) {
 
 function isPlainObject(value) {
     return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function clampNumber(value, min, max, fallback) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
 }
 
 function normalizeSettingsShape(settings) {
@@ -105,6 +121,8 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.regexRuleSettings)) settings.regexRuleSettings = {};
     if (!isPlainObject(settings.notifSounds)) settings.notifSounds = {};
     settings.floatVisible = settings.floatVisible !== false;
+    settings.floatSize = clampNumber(settings.floatSize, 20, 120, DEFAULT_SETTINGS.floatSize);
+    settings.floatOpacity = clampNumber(settings.floatOpacity, 0.2, 1, DEFAULT_SETTINGS.floatOpacity);
     settings.regexEnabled = settings.regexEnabled !== false;
     return settings;
 }

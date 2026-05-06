@@ -4,6 +4,7 @@
 
     const {
         createSettingsStorage,
+        DEFAULT_FLOAT_ICON_URL,
         getSettings,
         migrateFromLocalStorage,
         saveSettings,
@@ -92,24 +93,24 @@
     // --- 浮标显隐与自定义图标 ---
     let floatVisible = getSettings().floatVisible !== false;
     let floatIconUrl = getSettings().floatIconUrl || '';
+    let floatSize = getSettings().floatSize || 30;
+    let floatOpacity = getSettings().floatOpacity || 1;
 
     function applyFloatIcon(button) {
-        if (floatIconUrl) {
-            button.textContent = '';
-            button.style.backgroundImage = `url(${floatIconUrl})`;
-            button.style.backgroundSize = 'contain';
-            button.style.backgroundRepeat = 'no-repeat';
-            button.style.backgroundPosition = 'center';
-            button.style.backgroundColor = 'transparent';
-            button.style.boxShadow = 'none';
-            button.style.border = 'none';
-        } else {
-            button.textContent = '🧀';
-            button.style.backgroundImage = '';
-            button.style.backgroundColor = '';
-            button.style.boxShadow = '';
-            button.style.border = '';
-        }
+        const iconUrl = floatIconUrl || DEFAULT_FLOAT_ICON_URL;
+        button.textContent = '';
+        button.style.width = `${floatSize}px`;
+        button.style.height = `${floatSize}px`;
+        button.style.opacity = String(floatOpacity);
+        button.style.backgroundImage = `url(${iconUrl})`;
+        button.style.backgroundSize = 'contain';
+        button.style.backgroundRepeat = 'no-repeat';
+        button.style.backgroundPosition = 'center';
+        button.style.backgroundColor = 'transparent';
+        button.style.boxShadow = 'none';
+        button.style.border = 'none';
+        button.style.borderRadius = '0';
+        button.style.overflow = 'visible';
     }
 
     function applyFloatVisibility(button) {
@@ -336,8 +337,8 @@
                 formatDisplay.textContent = '格式: "描述"';
                 if (e) {
                     const t = document.createElement('i');
-                    t.textContent = ' ➕';
-                    t.className = 'cip-category-action-icon';
+                    t.className =
+                        'cip-category-action-icon fa-solid fa-plus';
                     t.title = '向此分类添加表情包';
                     t.onclick = (t) => {
                         t.stopPropagation();
@@ -345,9 +346,8 @@
                     };
                     e.appendChild(t);
                     const o = document.createElement('i');
-                    o.textContent = ' 🗑️';
                     o.className =
-                        'cip-category-action-icon cip-delete-category-btn';
+                        'cip-category-action-icon cip-delete-category-btn fa-solid fa-trash-can';
                     o.title = '删除此分类';
                     o.onclick = (t) => {
                         t.stopPropagation();
@@ -419,7 +419,7 @@
                         (selectedSticker = t));
                 }));
             const n = document.createElement('button');
-            ((n.innerHTML = '&times;'),
+            ((n.innerHTML = '<i class="fa-solid fa-trash-can"></i>'),
                 (n.className = 'cip-delete-sticker-btn'),
                 (n.title = '删除这个表情包'),
                 (n.onclick = (e) => {
@@ -941,6 +941,8 @@
             carrotButton,
             floatVisible,
             floatIconUrl,
+            floatSize,
+            floatOpacity,
             regexEnabled,
             regexModuleReady,
             setFloatVisible: (value) => {
@@ -948,6 +950,12 @@
             },
             setFloatIconUrl: (value) => {
                 floatIconUrl = value;
+            },
+            setFloatSize: (value) => {
+                floatSize = value;
+            },
+            setFloatOpacity: (value) => {
+                floatOpacity = value;
             },
             setRegexEnabled: (value) => {
                 regexEnabled = value;

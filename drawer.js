@@ -111,10 +111,14 @@ export function injectExtensionDrawer({
     carrotButton,
     floatVisible,
     floatIconUrl,
+    floatSize,
+    floatOpacity,
     regexEnabled,
     regexModuleReady,
     setFloatVisible,
     setFloatIconUrl,
+    setFloatSize,
+    setFloatOpacity,
     setRegexEnabled,
     applyFloatIcon,
     applyFloatVisibility,
@@ -153,6 +157,22 @@ export function injectExtensionDrawer({
                     <div class="cip-ext-field">
                         <small>浮标图片直链（填入后浮标显示该图）</small>
                         <input type="text" id="cip-ext-float-icon" class="text_pole" placeholder="留空使用默认图标" value="${floatIconUrl}">
+                    </div>
+                    <div class="cip-ext-range-field">
+                        <label>
+                            <span>浮标大小</span>
+                            <i class="fa-solid fa-circle-info" title="等比例放大或缩小浮标图片"></i>
+                        </label>
+                        <input type="range" id="cip-ext-float-size" min="20" max="120" step="1" value="${floatSize}">
+                        <output id="cip-ext-float-size-value">${floatSize}</output>
+                    </div>
+                    <div class="cip-ext-range-field">
+                        <label>
+                            <span>透明度</span>
+                            <i class="fa-solid fa-circle-info" title="调整浮标整体透明度"></i>
+                        </label>
+                        <input type="range" id="cip-ext-float-opacity" min="0.2" max="1" step="0.01" value="${floatOpacity}">
+                        <output id="cip-ext-float-opacity-value">${Number(floatOpacity).toFixed(2)}</output>
                     </div>
                 </div>
                 <div id="cip-ext-pane-prompt" class="cip-ext-pane" style="display:none;">
@@ -233,6 +253,10 @@ export function injectExtensionDrawer({
     const floatVisibleCheckbox = document.getElementById('cip-ext-float-visible');
     const regexToggleCheckbox = document.getElementById('cip-ext-regex-toggle');
     const floatIconInput = document.getElementById('cip-ext-float-icon');
+    const floatSizeInput = document.getElementById('cip-ext-float-size');
+    const floatSizeValue = document.getElementById('cip-ext-float-size-value');
+    const floatOpacityInput = document.getElementById('cip-ext-float-opacity');
+    const floatOpacityValue = document.getElementById('cip-ext-float-opacity-value');
 
     floatVisibleCheckbox?.addEventListener('change', () => {
         const next = floatVisibleCheckbox.checked;
@@ -256,6 +280,22 @@ export function injectExtensionDrawer({
         const next = floatIconInput.value.trim();
         setFloatIconUrl(next);
         getSettings().floatIconUrl = next;
+        saveSettings();
+        applyFloatIcon(carrotButton);
+    });
+    floatSizeInput?.addEventListener('input', () => {
+        const next = Number(floatSizeInput.value);
+        setFloatSize(next);
+        getSettings().floatSize = next;
+        if (floatSizeValue) floatSizeValue.textContent = String(next);
+        saveSettings();
+        applyFloatIcon(carrotButton);
+    });
+    floatOpacityInput?.addEventListener('input', () => {
+        const next = Number(floatOpacityInput.value);
+        setFloatOpacity(next);
+        getSettings().floatOpacity = next;
+        if (floatOpacityValue) floatOpacityValue.textContent = next.toFixed(2);
         saveSettings();
         applyFloatIcon(carrotButton);
     });

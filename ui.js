@@ -6,7 +6,7 @@ export function createUI() {
         if (html) el.innerHTML = html;
         return el;
     };
-    const carrotButton = create('div', 'cip-carrot-button', null, '🧀');
+    const carrotButton = create('div', 'cip-carrot-button', null, '');
     carrotButton.title = '胡萝卜快捷输入';
 
     const inputPanel = create(
@@ -30,7 +30,7 @@ export function createUI() {
             </div>
             <div id="cip-voice-content" class="cip-content-section"><input type="number" id="cip-voice-duration" placeholder="输入时长 (秒, 仅数字)"><textarea id="cip-voice-message" placeholder="输入语音识别出的内容..."></textarea></div>
             <div id="cip-wallet-content" class="cip-content-section"><div class="cip-wallet-row"><input type="text" id="cip-wallet-platform" placeholder="平台名称"><input type="text" id="cip-wallet-amount" placeholder="金额/车牌号"></div><div class="cip-wallet-row"><input type="text" id="cip-wallet-message" placeholder="留言/物品名称"></div></div>
-            <div id="cip-stickers-content" class="cip-content-section"><div id="cip-sticker-categories" class="cip-sub-options-container"><button id="cip-add-category-btn" class="cip-sub-option-btn">+</button></div><div id="cip-sticker-grid"></div></div>
+            <div id="cip-stickers-content" class="cip-content-section"><div id="cip-sticker-categories" class="cip-sub-options-container"><button id="cip-add-category-btn" class="cip-sub-option-btn"><i class="fa-solid fa-plus"></i></button></div><div id="cip-sticker-grid"></div></div>
         </div>
         <div id="cip-panel-footer">
             <div id="cip-footer-controls">
