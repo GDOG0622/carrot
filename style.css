@@ -22,7 +22,7 @@
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-    }
+    }
     .cip-tab-button,
     .cip-sub-option-btn,
     #cip-recall-button,
@@ -60,9 +60,9 @@
         font-size: 24px;
     }
 
-    /* 移动端：定时设置布局优化 */
+    /* 移动端：定时设置布局优化 */
 
-    /* 移动端：同步设置布局优化 */
+    /* 移动端：同步设置布局优化 */
 }
 .cip-frosted-glass {
     background: var(--cip-panel-bg-color);
@@ -1130,5 +1130,28 @@ emoji-picker {
 }
 
 #cip-extension-container .cip-ext-modal-actions button {
+    white-space: nowrap;
+}
+
+#cip-extension-container .cip-ext-divider {
+    border: none;
+    border-top: 1px solid var(--cip-border-color, rgba(255,255,255,0.1));
+    margin: 6px 0;
+}
+
+#cip-extension-container .cip-ext-notif-perm-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#cip-extension-container .cip-ext-notif-perm-row button {
+    flex: 1 1 0;
+    white-space: nowrap;
+}
+
+#cip-extension-container .cip-ext-notif-perm-label {
+    font-size: 12px;
+    opacity: 0.8;
     white-space: nowrap;
 }

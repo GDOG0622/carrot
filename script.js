@@ -299,7 +299,7 @@
             image: '“[{content}.jpg]”',
             video: '“[{content}.mp4]”',
             music: '“[{content}.mp3]”',
-            post: '"[{content}.link]”',
+            post: '“[{content}.link]”',
             bunny: "+{content}+",
         },
         voice: '={duration}|{message}=',
@@ -334,7 +334,7 @@
                     '格式: [平台名称-金额/车牌号-留言/物品名称]';
                 break;
             case 'stickers':
-                formatDisplay.textContent = '格式: "描述"';
+                formatDisplay.textContent = '格式: “描述”';
                 if (e) {
                     const t = document.createElement('i');
                     t.className =

@@ -6,6 +6,80 @@ import {
     saveSettings,
 } from './config.js';
 
+// --- 后台保活 ---
+let _keepAliveCtx = null;
+let _keepAliveSource = null;
+
+function startKeepAlive() {
+    if (_keepAliveCtx) return;
+    try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        _keepAliveCtx = new AC();
+    } catch (e) {
+        console.warn('胡萝卜插件：后台保活启动失败', e);
+        return;
+    }
+    const launchLoop = () => {
+        if (!_keepAliveCtx || _keepAliveSource) return;
+        try {
+            const buf = _keepAliveCtx.createBuffer(1, _keepAliveCtx.sampleRate, _keepAliveCtx.sampleRate);
+            _keepAliveSource = _keepAliveCtx.createBufferSource();
+            _keepAliveSource.buffer = buf;
+            _keepAliveSource.loop = true;
+            _keepAliveSource.connect(_keepAliveCtx.destination);
+            _keepAliveSource.start();
+        } catch (e) {
+            console.warn('胡萝卜插件：静音循环启动失败', e);
+        }
+    };
+    if (_keepAliveCtx.state === 'running') {
+        launchLoop();
+    } else {
+        const onInteraction = () => {
+            _keepAliveCtx?.resume().then(launchLoop).catch(() => {});
+        };
+        document.addEventListener('click', onInteraction, { once: true });
+        document.addEventListener('touchend', onInteraction, { once: true });
+    }
+}
+
+function stopKeepAlive() {
+    try { _keepAliveSource?.stop(); } catch (e) {}
+    try { _keepAliveCtx?.close(); } catch (e) {}
+    _keepAliveCtx = null;
+    _keepAliveSource = null;
+}
+
+// --- 系统通知 ---
+function getNotifPermStatus() {
+    if (!('Notification' in window)) return '不支持';
+    const p = Notification.permission;
+    if (p === 'granted') return '已授权 ✅';
+    if (p === 'denied') return '已拒绝 ❌';
+    return '未授权';
+}
+
+async function requestNotifPermission() {
+    if (!('Notification' in window)) return 'unsupported';
+    try {
+        return await Notification.requestPermission();
+    } catch (e) {
+        return Notification.permission || 'denied';
+    }
+}
+
+function showSystemNotification(title, body) {
+    if (!('Notification' in window)) return;
+    if (Notification.permission !== 'granted') return;
+    try {
+        new Notification(title || '胡萝卜提示', { body: body || '' });
+    } catch (e) {
+        console.warn('胡萝卜插件：系统通知失败', e);
+    }
+}
+
+// --- 提示音 ---
 function buildSoundOptions(selectEl) {
     if (!selectEl) return;
     const sounds = getSettings().notifSounds || {};
@@ -33,6 +107,7 @@ async function playSound(name) {
     }
 }
 
+// --- 事件绑定（只执行一次）---
 function initNotificationSounds() {
     import('/scripts/events.js').then((eventsModule) => {
         const evTypes = eventsModule.event_types;
@@ -46,16 +121,43 @@ function initNotificationSounds() {
         let generationActive = false;
         let receivedMessage = false;
         let playedForGeneration = false;
+        let receivedMessageId = null;
+        let generationFailed = false;
+        const getLastAiMessageId = () => {
+            try {
+                const chat = window.SillyTavern?.getContext?.()?.chat || [];
+                for (let i = chat.length - 1; i >= 0; i--) {
+                    if (!chat[i]?.is_user) return i;
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+        };
         const hasMessageText = (messageId) => {
             try {
                 const chat = window.SillyTavern?.getContext?.()?.chat || [];
                 const message = chat[messageId];
                 const text = (message?.mes || '').replace(/<[^>]*>/g, '').trim();
-                return !!text;
+                if (!text || text === '...') return false;
+                return !/^(error|exception|failed|api error|network error|generation failed)\b/i.test(text);
             } catch (e) {
                 return true;
             }
         };
+        const markGenerationFailed = () => {
+            if (generationActive) generationFailed = true;
+        };
+        window.addEventListener('error', markGenerationFailed, true);
+        window.addEventListener('unhandledrejection', markGenerationFailed, true);
+        if (window.toastr?.error && !window.toastr._carrotSoundErrorPatched) {
+            const originalToastrError = window.toastr.error.bind(window.toastr);
+            window.toastr.error = (...args) => {
+                markGenerationFailed();
+                return originalToastrError(...args);
+            };
+            window.toastr._carrotSoundErrorPatched = true;
+        }
         const playSuccess = () => {
             const s = getSettings();
             if (s.notifSuccess && !playedForGeneration) {
@@ -80,24 +182,34 @@ function initNotificationSounds() {
                 generationActive = true;
                 receivedMessage = false;
                 playedForGeneration = false;
+                receivedMessageId = null;
+                generationFailed = false;
             });
             es.on(evTypes.MESSAGE_RECEIVED, (messageId, type) => {
                 if (!generationActive) return;
                 if (type === 'first_message') return;
                 if (!hasMessageText(messageId)) return;
                 receivedMessage = true;
-                playSuccess();
+                receivedMessageId = messageId;
             });
             es.on(evTypes.GENERATION_STOPPED, () => {
-                if (generationActive && !receivedMessage) {
-                    playFail();
-                }
+                if (!generationActive) return;
+                generationFailed = true;
+                playFail();
                 generationActive = false;
             });
             es.on(evTypes.GENERATION_ENDED, () => {
                 setTimeout(() => {
-                    if (generationActive && !receivedMessage) {
-                        playFail();
+                    if (generationActive && !playedForGeneration) {
+                        const messageId = receivedMessageId ?? getLastAiMessageId();
+                        if (generationFailed) {
+                            playFail();
+                        } else if (hasMessageText(messageId)) {
+                            receivedMessage = true;
+                            playSuccess();
+                        } else if (!receivedMessage) {
+                            playFail();
+                        }
                     }
                     generationActive = false;
                 }, 300);
@@ -106,7 +218,6 @@ function initNotificationSounds() {
         tryBind();
     }).catch(() => {});
 }
-
 export function injectExtensionDrawer({
     carrotButton,
     floatVisible,
@@ -198,6 +309,35 @@ export function injectExtensionDrawer({
                         </div>
                     </div>
                     <div id="cip-ext-sound-status" class="cip-ext-status"></div>
+                    <hr class="cip-ext-divider">
+                    <div class="cip-ext-field">
+                        <small>系统通知推送 <span id="cip-ext-notif-perm-status" class="cip-ext-notif-perm-label"></span></small>
+                        <div class="cip-ext-notif-perm-row">
+                            <button id="cip-ext-notif-request-perm" class="menu_button">申请权限</button>
+                            <button id="cip-ext-notif-test-success" class="menu_button">测试成功</button>
+                            <button id="cip-ext-notif-test-fail" class="menu_button">测试失败</button>
+                        </div>
+                    </div>
+                    <div class="cip-ext-checkboxes">
+                        <label class="cip-ext-label checkbox_label">
+                            <input type="checkbox" id="cip-ext-notif-popup-enabled" ${s.notifPopupEnabled ? 'checked' : ''}>
+                            <span>后台时弹出系统通知</span>
+                        </label>
+                        <label class="cip-ext-label checkbox_label">
+                            <input type="checkbox" id="cip-ext-notif-keep-alive" ${s.notifKeepAlive ? 'checked' : ''}>
+                            <span>后台保活（后台也播放声音）</span>
+                        </label>
+                    </div>
+                    <div class="cip-ext-field">
+                        <small>成功推送文案</small>
+                        <input type="text" id="cip-ext-notif-success-title" class="text_pole" placeholder="推送标题（默认：AI 回复完成）" value="${s.notifSuccessTitle || ''}">
+                        <input type="text" id="cip-ext-notif-success-body" class="text_pole" placeholder="推送正文（可留空）" value="${s.notifSuccessBody || ''}">
+                    </div>
+                    <div class="cip-ext-field">
+                        <small>失败推送文案</small>
+                        <input type="text" id="cip-ext-notif-fail-title" class="text_pole" placeholder="推送标题（默认：AI 回复中断）" value="${s.notifFailTitle || ''}">
+                        <input type="text" id="cip-ext-notif-fail-body" class="text_pole" placeholder="推送正文（可留空）" value="${s.notifFailBody || ''}">
+                    </div>
                     <div id="cip-ext-sound-add-modal" class="cip-ext-modal hidden">
                         <div class="cip-ext-modal-content">
                             <h4>添加提示音</h4>
@@ -303,6 +443,8 @@ export function injectExtensionDrawer({
     bindPromptPane(wrapper, s);
     bindSyncPane();
     initNotificationSounds();
+
+    if (s.notifKeepAlive) startKeepAlive();
 }
 
 function bindPromptPane(wrapper, s) {
@@ -420,6 +562,106 @@ function bindPromptPane(wrapper, s) {
             const ok = await playSound(sel.value);
             setSoundStatus(ok ? '✅ 试听成功' : '❌ 试听失败，请检查直链或浏览器播放权限');
         });
+    });
+
+    // --- 系统通知推送 ---
+    const notifPermStatus = document.getElementById('cip-ext-notif-perm-status');
+    const notifRequestPermBtn = document.getElementById('cip-ext-notif-request-perm');
+    const notifTestSuccessBtn = document.getElementById('cip-ext-notif-test-success');
+    const notifTestFailBtn = document.getElementById('cip-ext-notif-test-fail');
+    const notifPopupEnabledCb = document.getElementById('cip-ext-notif-popup-enabled');
+    const notifKeepAliveCb = document.getElementById('cip-ext-notif-keep-alive');
+    const notifSuccessTitleInput = document.getElementById('cip-ext-notif-success-title');
+    const notifSuccessBodyInput = document.getElementById('cip-ext-notif-success-body');
+    const notifFailTitleInput = document.getElementById('cip-ext-notif-fail-title');
+    const notifFailBodyInput = document.getElementById('cip-ext-notif-fail-body');
+
+    const refreshPermStatus = () => {
+        if (notifPermStatus) notifPermStatus.textContent = getNotifPermStatus();
+    };
+    refreshPermStatus();
+
+    notifRequestPermBtn?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const before = 'Notification' in window ? Notification.permission : null;
+        const result = await requestNotifPermission();
+        refreshPermStatus();
+        if (result === 'unsupported') {
+            setSoundStatus('❌ 此浏览器不支持系统通知');
+        } else if (result === 'granted') {
+            setSoundStatus('✅ 通知权限已授权');
+        } else if (result === 'denied') {
+            if (before === 'denied') {
+                setSoundStatus('❌ 通知权限之前已被拒绝。请在浏览器地址栏左侧点击网站信息图标 → 通知 → 允许，然后刷新页面');
+            } else {
+                setSoundStatus('❌ 通知权限被拒绝');
+            }
+        } else if (result === 'default') {
+            setSoundStatus('⚠️ 未做选择，请在弹出的对话框中点击"允许"');
+        }
+    });
+
+    const sendTestNotif = (title, body, label) => {
+        if (!('Notification' in window)) {
+            setSoundStatus('❌ 此浏览器不支持系统通知');
+            return;
+        }
+        if (Notification.permission !== 'granted') {
+            setSoundStatus('❌ 请先申请通知权限');
+            return;
+        }
+        showSystemNotification(title, body);
+        setSoundStatus(`✅ ${label}测试通知已发送`);
+    };
+
+    notifTestSuccessBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sendTestNotif(
+            s.notifSuccessTitle || 'AI 回复完成',
+            s.notifSuccessBody || '这是一条成功测试通知',
+            '成功',
+        );
+    });
+
+    notifTestFailBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sendTestNotif(
+            s.notifFailTitle || 'AI 回复中断',
+            s.notifFailBody || '这是一条失败测试通知',
+            '失败',
+        );
+    });
+
+    notifPopupEnabledCb?.addEventListener('change', () => {
+        s.notifPopupEnabled = notifPopupEnabledCb.checked;
+        saveSettings();
+    });
+
+    notifKeepAliveCb?.addEventListener('change', () => {
+        s.notifKeepAlive = notifKeepAliveCb.checked;
+        saveSettings();
+        if (s.notifKeepAlive) {
+            startKeepAlive();
+        } else {
+            stopKeepAlive();
+        }
+    });
+
+    notifSuccessTitleInput?.addEventListener('change', () => {
+        s.notifSuccessTitle = notifSuccessTitleInput.value.trim();
+        saveSettings();
+    });
+    notifSuccessBodyInput?.addEventListener('change', () => {
+        s.notifSuccessBody = notifSuccessBodyInput.value.trim();
+        saveSettings();
+    });
+    notifFailTitleInput?.addEventListener('change', () => {
+        s.notifFailTitle = notifFailTitleInput.value.trim();
+        saveSettings();
+    });
+    notifFailBodyInput?.addEventListener('change', () => {
+        s.notifFailBody = notifFailBodyInput.value.trim();
+        saveSettings();
     });
 }
 

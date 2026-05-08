@@ -25,6 +25,12 @@ const DEFAULT_SETTINGS = {
     notifSounds: {},
     notifSuccess: '',
     notifFail: '',
+    notifPopupEnabled: false,
+    notifKeepAlive: false,
+    notifSuccessTitle: 'AI 回复完成',
+    notifSuccessBody: '',
+    notifFailTitle: 'AI 回复中断',
+    notifFailBody: '',
     syncFilename: '',
     localStorageMigrated: false,
 };
@@ -48,6 +54,12 @@ const legacyDefinitions = {
     cip_notif_sounds_v1: ['notifSounds', parseJson, stringifyJson],
     cip_notif_success_v1: ['notifSuccess', parseString, stringifyString],
     cip_notif_fail_v1: ['notifFail', parseString, stringifyString],
+    cip_notif_popup_enabled_v1: ['notifPopupEnabled', parseBoolean, stringifyBoolean],
+    cip_notif_keep_alive_v1: ['notifKeepAlive', parseBoolean, stringifyBoolean],
+    cip_notif_success_title_v1: ['notifSuccessTitle', parseString, stringifyString],
+    cip_notif_success_body_v1: ['notifSuccessBody', parseString, stringifyString],
+    cip_notif_fail_title_v1: ['notifFailTitle', parseString, stringifyString],
+    cip_notif_fail_body_v1: ['notifFailBody', parseString, stringifyString],
 };
 
 const settingToLegacyKey = Object.fromEntries(
