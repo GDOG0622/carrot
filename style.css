@@ -1157,3 +1157,9 @@ emoji-picker {
     opacity: 0.8;
     white-space: nowrap;
 }
+
+#cip-extension-container .cip-ext-keep-alive-player audio {
+    display: block;
+    width: 100%;
+    min-height: 32px;
+}

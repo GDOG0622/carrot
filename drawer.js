@@ -12,26 +12,30 @@ let _keepAliveAudio = null;
 let _keepAliveUnlockBound = false;
 let _notificationSoundsInited = false;
 const _soundAudioCache = new Map();
+const KEEP_ALIVE_AUDIO_SRC = new URL('./silence.m4a', import.meta.url).href;
 
 function getOrCreateKeepAliveAudio() {
     if (_keepAliveAudio) return _keepAliveAudio;
-    const audio = document.createElement('audio');
+    const audio = document.getElementById('cip-keep-alive-audio') || document.createElement('audio');
     audio.id = 'cip-keep-alive-audio';
-    audio.src = SILENT_AUDIO_SRC;
+    audio.src = KEEP_ALIVE_AUDIO_SRC;
     audio.loop = true;
     audio.autoplay = true;
     audio.preload = 'auto';
+    audio.controls = true;
     audio.playsInline = true;
     audio.setAttribute('playsinline', '');
     audio.setAttribute('webkit-playsinline', '');
-    audio.style.position = 'fixed';
-    audio.style.width = '1px';
-    audio.style.height = '1px';
-    audio.style.opacity = '0';
-    audio.style.pointerEvents = 'none';
-    audio.style.left = '-9999px';
-    audio.style.bottom = '0';
-    document.body.appendChild(audio);
+    audio.style.position = '';
+    audio.style.width = '100%';
+    audio.style.height = '';
+    audio.style.opacity = '';
+    audio.style.pointerEvents = '';
+    audio.style.left = '';
+    audio.style.bottom = '';
+    if (!audio.parentElement) {
+        document.body.appendChild(audio);
+    }
     _keepAliveAudio = audio;
     return audio;
 }
@@ -94,7 +98,6 @@ function startKeepAlive() {
 
 function stopKeepAlive() {
     try { _keepAliveAudio?.pause(); } catch (e) {}
-    try { _keepAliveAudio?.remove(); } catch (e) {}
     _keepAliveAudio = null;
     return;
     try { _keepAliveSource?.stop(); } catch (e) {}
@@ -702,6 +705,11 @@ function bindPromptPane(wrapper, s) {
     const notifSuccessBodyInput = document.getElementById('cip-ext-notif-success-body');
     const notifFailTitleInput = document.getElementById('cip-ext-notif-fail-title');
     const notifFailBodyInput = document.getElementById('cip-ext-notif-fail-body');
+    const keepAlivePlayerHost = document.createElement('div');
+    keepAlivePlayerHost.className = 'cip-ext-field cip-ext-keep-alive-player';
+    keepAlivePlayerHost.innerHTML = '<small>Silence Player</small>';
+    keepAlivePlayerHost.appendChild(getOrCreateKeepAliveAudio());
+    notifKeepAliveCb?.closest('.cip-ext-checkboxes')?.after(keepAlivePlayerHost);
 
     const refreshPermStatus = () => {
         if (notifPermStatus) notifPermStatus.textContent = getNotifPermStatus();
