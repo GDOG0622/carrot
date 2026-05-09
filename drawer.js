@@ -7,10 +7,58 @@ import {
 } from './config.js';
 
 // --- 后台保活 ---
-let _keepAliveCtx = null;
-let _keepAliveSource = null;
+const SILENT_AUDIO_SRC = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+let _keepAliveAudio = null;
+let _keepAliveUnlockBound = false;
+let _notificationSoundsInited = false;
+const _soundAudioCache = new Map();
+
+function getOrCreateKeepAliveAudio() {
+    if (_keepAliveAudio) return _keepAliveAudio;
+    const audio = document.createElement('audio');
+    audio.id = 'cip-keep-alive-audio';
+    audio.src = SILENT_AUDIO_SRC;
+    audio.loop = true;
+    audio.autoplay = true;
+    audio.preload = 'auto';
+    audio.playsInline = true;
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('webkit-playsinline', '');
+    audio.style.position = 'fixed';
+    audio.style.width = '1px';
+    audio.style.height = '1px';
+    audio.style.opacity = '0';
+    audio.style.pointerEvents = 'none';
+    audio.style.left = '-9999px';
+    audio.style.bottom = '0';
+    document.body.appendChild(audio);
+    _keepAliveAudio = audio;
+    return audio;
+}
+
+function tryPlayKeepAlive() {
+    const audio = getOrCreateKeepAliveAudio();
+    return audio.play().catch((error) => {
+        console.warn('Carrot: keep-alive audio play failed', error);
+        return false;
+    });
+}
 
 function startKeepAlive() {
+    tryPlayKeepAlive();
+    if (!_keepAliveUnlockBound) {
+        const unlock = () => {
+            if (!getSettings().notifKeepAlive) return;
+            tryPlayKeepAlive();
+        };
+        document.addEventListener('pointerdown', unlock, { passive: true });
+        document.addEventListener('touchend', unlock, { passive: true });
+        document.addEventListener('click', unlock, { passive: true });
+        document.addEventListener('visibilitychange', unlock, { passive: true });
+        window.addEventListener('pageshow', unlock, { passive: true });
+        _keepAliveUnlockBound = true;
+    }
+    return;
     if (_keepAliveCtx) return;
     try {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -45,6 +93,10 @@ function startKeepAlive() {
 }
 
 function stopKeepAlive() {
+    try { _keepAliveAudio?.pause(); } catch (e) {}
+    try { _keepAliveAudio?.remove(); } catch (e) {}
+    _keepAliveAudio = null;
+    return;
     try { _keepAliveSource?.stop(); } catch (e) {}
     try { _keepAliveCtx?.close(); } catch (e) {}
     _keepAliveCtx = null;
@@ -72,6 +124,49 @@ async function requestNotifPermission() {
 function showSystemNotification(title, body) {
     if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
+    const safeTitle = title || 'Carrot';
+    const safeBody = body || '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const options = {
+        body: safeBody,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: `carrot-notification-${Date.now()}`,
+        requireInteraction: false,
+        renotify: true,
+        silent: false,
+        timestamp: Date.now(),
+    };
+    const sendRegular = () => {
+        const notification = new Notification(safeTitle, options);
+        notification.onclick = () => {
+            try { window.focus(); } catch (e) {}
+            try { notification.close(); } catch (e) {}
+        };
+        if (isMobile) {
+            setTimeout(() => {
+                try { notification.close(); } catch (e) {}
+            }, 8000);
+        }
+        return notification;
+    };
+    (async () => {
+        try {
+            const registration = await navigator.serviceWorker?.getRegistration?.();
+            if (registration?.showNotification && isMobile) {
+                await registration.showNotification(safeTitle, options);
+                return;
+            }
+            sendRegular();
+        } catch (error) {
+            try {
+                sendRegular();
+            } catch (fallbackError) {
+                console.warn('Carrot: system notification failed', fallbackError);
+            }
+        }
+    })();
+    return;
     try {
         new Notification(title || '胡萝卜提示', { body: body || '' });
     } catch (e) {
@@ -96,6 +191,27 @@ async function playSound(name) {
     const sounds = getSettings().notifSounds || {};
     const url = sounds[name];
     if (!url) return false;
+    let audio = _soundAudioCache.get(name);
+    if (!audio || audio.src !== url) {
+        audio = new Audio(url);
+        audio.preload = 'auto';
+        audio.playsInline = true;
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
+        _soundAudioCache.set(name, audio);
+    }
+    try {
+        audio.pause();
+        audio.currentTime = 0;
+        await audio.play();
+        return true;
+    } catch (error) {
+        console.warn('Carrot: notification sound play failed', error);
+        _soundAudioCache.delete(name);
+        if (getSettings().notifKeepAlive) {
+            await tryPlayKeepAlive();
+        }
+    }
     try {
         const audio = new Audio(url);
         audio.preload = 'auto';
@@ -109,6 +225,8 @@ async function playSound(name) {
 
 // --- 事件绑定（只执行一次）---
 function initNotificationSounds() {
+    if (_notificationSoundsInited) return;
+    _notificationSoundsInited = true;
     import('/scripts/events.js').then((eventsModule) => {
         const evTypes = eventsModule.event_types;
         const getEventSource = () => {
@@ -160,16 +278,24 @@ function initNotificationSounds() {
         }
         const playSuccess = () => {
             const s = getSettings();
-            if (s.notifSuccess && !playedForGeneration) {
-                playedForGeneration = true;
+            if (playedForGeneration) return;
+            playedForGeneration = true;
+            if (s.notifSuccess) {
                 playSound(s.notifSuccess);
+            }
+            if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
+                showSystemNotification(s.notifSuccessTitle || 'AI reply complete', s.notifSuccessBody || '');
             }
         };
         const playFail = () => {
             const s = getSettings();
-            if (s.notifFail && !playedForGeneration) {
-                playedForGeneration = true;
+            if (playedForGeneration) return;
+            playedForGeneration = true;
+            if (s.notifFail) {
                 playSound(s.notifFail);
+            }
+            if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
+                showSystemNotification(s.notifFailTitle || 'AI reply interrupted', s.notifFailBody || '');
             }
         };
         const tryBind = () => {
@@ -533,6 +659,7 @@ function bindPromptPane(wrapper, s) {
             return;
         }
         if (s.notifSounds) delete s.notifSounds[name];
+        _soundAudioCache.delete(name);
         if (s.notifSuccess === name) s.notifSuccess = '';
         if (s.notifFail === name) s.notifFail = '';
         saveSettings();

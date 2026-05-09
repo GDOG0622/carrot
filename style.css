@@ -22,6 +22,8 @@
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
     }
     .cip-tab-button,
     .cip-sub-option-btn,
