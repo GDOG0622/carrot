@@ -243,7 +243,6 @@ function initNotificationSounds() {
         let receivedMessage = false;
         let playedForGeneration = false;
         let receivedMessageId = null;
-        let generationFailed = false;
         const getLastAiMessageId = () => {
             try {
                 const chat = window.SillyTavern?.getContext?.()?.chat || [];
@@ -266,19 +265,6 @@ function initNotificationSounds() {
                 return true;
             }
         };
-        const markGenerationFailed = () => {
-            if (generationActive) generationFailed = true;
-        };
-        window.addEventListener('error', markGenerationFailed, true);
-        window.addEventListener('unhandledrejection', markGenerationFailed, true);
-        if (window.toastr?.error && !window.toastr._carrotSoundErrorPatched) {
-            const originalToastrError = window.toastr.error.bind(window.toastr);
-            window.toastr.error = (...args) => {
-                markGenerationFailed();
-                return originalToastrError(...args);
-            };
-            window.toastr._carrotSoundErrorPatched = true;
-        }
         const playSuccess = () => {
             const s = getSettings();
             if (playedForGeneration) return;
@@ -312,7 +298,6 @@ function initNotificationSounds() {
                 receivedMessage = false;
                 playedForGeneration = false;
                 receivedMessageId = null;
-                generationFailed = false;
             });
             es.on(evTypes.MESSAGE_RECEIVED, (messageId, type) => {
                 if (!generationActive) return;
@@ -323,17 +308,22 @@ function initNotificationSounds() {
             });
             es.on(evTypes.GENERATION_STOPPED, () => {
                 if (!generationActive) return;
-                generationFailed = true;
-                playFail();
-                generationActive = false;
+                setTimeout(() => {
+                    if (!generationActive || playedForGeneration) return;
+                    const messageId = receivedMessageId ?? getLastAiMessageId();
+                    if (hasMessageText(messageId)) {
+                        playSuccess();
+                    } else {
+                        playFail();
+                    }
+                    generationActive = false;
+                }, 300);
             });
             es.on(evTypes.GENERATION_ENDED, () => {
                 setTimeout(() => {
                     if (generationActive && !playedForGeneration) {
                         const messageId = receivedMessageId ?? getLastAiMessageId();
-                        if (generationFailed) {
-                            playFail();
-                        } else if (hasMessageText(messageId)) {
+                        if (hasMessageText(messageId)) {
                             receivedMessage = true;
                             playSuccess();
                         } else if (!receivedMessage) {
