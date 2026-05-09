@@ -15,7 +15,7 @@ export function createUI() {
         'cip-frosted-glass',
         `
         <nav id="cip-panel-tabs">
-            <button class="cip-tab-button active" data-tab="text">文字</button>
+            <button class="cip-tab-button active" data-tab="text">文字信息</button>
             <button class="cip-tab-button" data-tab="voice">语音</button>
             <button class="cip-tab-button" data-tab="wallet">钱包</button>
             <button class="cip-tab-button" data-tab="stickers">表情包</button>
@@ -23,7 +23,7 @@ export function createUI() {
         <div id="cip-format-display"></div>
         <div id="cip-panel-content">
              <div id="cip-text-content" class="cip-content-section">
-                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="post">帖子</button><button class="cip-sub-option-btn" data-type="bunny">BUNNY</button></div>
+                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="post">帖子</button><button class="cip-sub-option-btn" data-type="bunny">BUNNY</button></div>
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>
@@ -75,10 +75,23 @@ export function createUI() {
             <nav id="cip-settings-tabs">
                 <button class="cip-settings-tab active" data-target="theme">主题</button>
                 <button class="cip-settings-tab" data-target="avatar">头像</button>
+                <button class="cip-settings-tab" data-target="bubble">气泡</button>
             </nav>
         </div>
         <div id="cip-settings-sections">
             <section id="cip-settings-theme" class="cip-settings-section active">
+                <div class="cip-preset-bar">
+                    <select id="cip-theme-select"></select>
+                    <button id="cip-save-theme-btn" class="cip-preset-icon-btn" title="保存到当前配置">
+                        <i class="fa-solid fa-save"></i>
+                    </button>
+                    <button id="cip-rename-theme-btn" class="cip-preset-icon-btn" title="编辑配置名">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
+                    <button id="cip-new-theme-btn" class="cip-preset-icon-btn" title="新建配置">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                    </button>
+                </div>
                 <div class="cip-theme-options-grid">
                     <label for="cip-color-accent">高亮颜色:</label>
                     <div class="cip-color-input-wrapper">
@@ -104,16 +117,6 @@ export function createUI() {
                         <input type="color" class="cip-color-picker" data-target="cip-color-text">
                     </div>
                 </div>
-                <div class="cip-theme-manager">
-                    <div class="cip-theme-actions">
-                        <select id="cip-theme-select"></select>
-                        <button id="cip-delete-theme-btn" class="cip-delete-btn">删除</button>
-                    </div>
-                    <div class="cip-theme-save-new">
-                        <input type="text" id="cip-new-theme-name" placeholder="输入新配色方案名称...">
-                        <button id="cip-save-theme-btn" class="cip-save-btn">保存</button>
-                    </div>
-                </div>
             </section>
             <section id="cip-settings-avatar" class="cip-settings-section">
                 <div class="cip-avatar-subtabs">
@@ -121,10 +124,20 @@ export function createUI() {
                     <span class="cip-avatar-divider">｜</span>
                     <button class="cip-avatar-subtab" data-subtab="frame">头像框</button>
                 </div>
-                <hr class="cip-avatar-separator">
 
                 <div id="cip-avatar-pane-avatar" class="cip-avatar-pane cip-avatar-section active">
-                    <h4 class="cip-section-title">🖼️ 头像设置</h4>
+                    <div class="cip-preset-bar">
+                        <select id="cip-avatar-profile-select"></select>
+                        <button id="cip-save-avatar-btn" class="cip-preset-icon-btn" title="保存到当前配置">
+                            <i class="fa-solid fa-save"></i>
+                        </button>
+                        <button id="cip-rename-avatar-btn" class="cip-preset-icon-btn" title="编辑配置名">
+                            <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button id="cip-new-avatar-btn" class="cip-preset-icon-btn" title="新建配置">
+                            <i class="fa-solid fa-file-circle-plus"></i>
+                        </button>
+                    </div>
                     <div class="cip-avatar-grid">
                         <label for="cip-char-avatar-url">角色 (Char):</label>
                         <input type="text" id="cip-char-avatar-url" placeholder="粘贴角色头像链接...">
@@ -135,22 +148,21 @@ export function createUI() {
                         <label for="cip-unsplash-access-key">Unsplash Key:</label>
                         <input type="text" id="cip-unsplash-access-key" placeholder="输入 Unsplash Access Key...">
                     </div>
-
-                    <div class="cip-avatar-manager">
-                        <div class="cip-avatar-actions">
-                            <select id="cip-avatar-profile-select"></select>
-                            <button id="cip-apply-avatar-btn" class="cip-apply-btn">应用</button>
-                            <button id="cip-delete-avatar-btn" class="cip-delete-btn">删除</button>
-                        </div>
-                        <div class="cip-avatar-save-new">
-                            <input type="text" id="cip-new-avatar-profile-name" placeholder="输入新配置名称...">
-                            <button id="cip-save-avatar-btn" class="cip-apply-btn">保存</button>
-                        </div>
-                    </div>
                 </div>
 
                 <div id="cip-avatar-pane-frame" class="cip-avatar-pane cip-frame-section">
-                    <h4 class="cip-section-title">🎨 头像框设置</h4>
+                    <div class="cip-preset-bar">
+                        <select id="cip-frame-profile-select"></select>
+                        <button id="cip-save-frame-btn" class="cip-preset-icon-btn" title="保存到当前配置">
+                            <i class="fa-solid fa-save"></i>
+                        </button>
+                        <button id="cip-rename-frame-btn" class="cip-preset-icon-btn" title="编辑配置名">
+                            <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button id="cip-new-frame-btn" class="cip-preset-icon-btn" title="新建配置">
+                            <i class="fa-solid fa-file-circle-plus"></i>
+                        </button>
+                    </div>
                     <div class="cip-avatar-grid">
                         <label for="cip-char-frame-url">角色头像框:</label>
                         <div class="cip-frame-input-wrapper">
@@ -188,18 +200,39 @@ export function createUI() {
                             <button id="cip-frame-close-btn">关闭</button>
                         </div>
                     </div>
-
-                    <div class="cip-avatar-manager">
-                        <div class="cip-avatar-actions">
-                            <select id="cip-frame-profile-select"></select>
-                            <button id="cip-apply-frame-btn" class="cip-apply-btn">应用</button>
-                            <button id="cip-delete-frame-btn" class="cip-delete-btn">删除</button>
-                        </div>
-                        <div class="cip-avatar-save-new">
-                            <input type="text" id="cip-new-frame-profile-name" placeholder="输入新头像框配置名称...">
-                            <button id="cip-save-frame-btn" class="cip-apply-btn">保存</button>
-                        </div>
+                </div>
+            </section>
+            <section id="cip-settings-bubble" class="cip-settings-section">
+                <div class="cip-bubble-manager">
+                    <div class="cip-preset-bar">
+                        <select id="cip-bubble-profile-select"></select>
+                        <button id="cip-bubble-save-btn" class="cip-preset-icon-btn" title="保存到当前配置">
+                            <i class="fa-solid fa-save"></i>
+                        </button>
+                        <button id="cip-bubble-rename-btn" class="cip-preset-icon-btn" title="编辑配置名">
+                            <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button id="cip-bubble-new-btn" class="cip-preset-icon-btn" title="新建配置">
+                            <i class="fa-solid fa-file-circle-plus"></i>
+                        </button>
                     </div>
+                    <details class="cip-bubble-section" open>
+                        <summary>文字</summary>
+                        <textarea id="cip-bubble-text" placeholder="文字格式的气泡美化代码..."></textarea>
+                    </details>
+                    <details class="cip-bubble-section">
+                        <summary>语音</summary>
+                        <textarea id="cip-bubble-voice" placeholder="语音格式的气泡美化代码..."></textarea>
+                    </details>
+                    <details class="cip-bubble-section">
+                        <summary>超次元</summary>
+                        <textarea id="cip-bubble-dimension" placeholder="超次元格式的气泡美化代码..."></textarea>
+                    </details>
+                    <details class="cip-bubble-section">
+                        <summary>自定义教程</summary>
+                        <div class="cip-bubble-tutorial"></div>
+                    </details>
+                    <div id="cip-bubble-status" class="cip-settings-panel-note"></div>
                 </div>
             </section>
         </div>

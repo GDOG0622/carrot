@@ -17,7 +17,7 @@
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
-    const { initCompactSelectDropdowns } = await import('./selects.js');
+    const { initFormatRenderer } = await import('./format-renderer.js?v=20260509-ios-format-7');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -137,7 +137,7 @@
         document.body.appendChild(addCategoryModal);
         document.body.appendChild(addStickersModal);
         document.body.appendChild(settingsPanel);
-        initCompactSelectDropdowns(document);
+
     } else {
         console.error(
             '胡萝卜输入面板：未能找到SillyTavern的UI挂载点，插件无法加载。',
@@ -176,9 +176,9 @@
     const colorInputs = queryAll('.cip-theme-options-grid input[type="text"]');
     const colorPickers = queryAll('.cip-color-picker');
     const themeSelect = get('cip-theme-select');
-    const newThemeNameInput = get('cip-new-theme-name');
     const saveThemeBtn = get('cip-save-theme-btn');
-    const deleteThemeBtn = get('cip-delete-theme-btn');
+    const renameThemeBtn = get('cip-rename-theme-btn');
+    const newThemeBtn = get('cip-new-theme-btn');
 
     const avatarSubtabs = document.querySelectorAll('.cip-avatar-subtab');
     const avatarPanes = document.querySelectorAll('.cip-avatar-pane');
@@ -188,10 +188,9 @@
     const userAvatarFrameUrlInput = get('cip-user-frame-url');
     const unsplashAccessKeyInput = get('cip-unsplash-access-key');
     const avatarProfileSelect = get('cip-avatar-profile-select');
-    const applyAvatarBtn = get('cip-apply-avatar-btn');
-    const deleteAvatarBtn = get('cip-delete-avatar-btn');
-    const newAvatarProfileNameInput = get('cip-new-avatar-profile-name');
     const saveAvatarBtn = get('cip-save-avatar-btn');
+    const renameAvatarBtn = get('cip-rename-avatar-btn');
+    const newAvatarBtn = get('cip-new-avatar-btn');
 
     const adjustCharFrameBtn = get('cip-adjust-char-frame-btn');
     const adjustUserFrameBtn = get('cip-adjust-user-frame-btn');
@@ -206,10 +205,18 @@
     const frameResetBtn = get('cip-frame-reset-btn');
     const frameCloseBtn = get('cip-frame-close-btn');
     const frameProfileSelect = get('cip-frame-profile-select');
-    const applyFrameBtn = get('cip-apply-frame-btn');
-    const deleteFrameBtn = get('cip-delete-frame-btn');
-    const newFrameProfileNameInput = get('cip-new-frame-profile-name');
     const saveFrameBtn = get('cip-save-frame-btn');
+    const renameFrameBtn = get('cip-rename-frame-btn');
+    const newFrameBtn = get('cip-new-frame-btn');
+
+    const bubbleProfileSelect = get('cip-bubble-profile-select');
+    const bubbleSaveBtn = get('cip-bubble-save-btn');
+    const bubbleRenameBtn = get('cip-bubble-rename-btn');
+    const bubbleNewBtn = get('cip-bubble-new-btn');
+    const bubbleTextInput = get('cip-bubble-text');
+    const bubbleVoiceInput = get('cip-bubble-voice');
+    const bubbleDimensionInput = get('cip-bubble-dimension');
+    const bubbleStatus = get('cip-bubble-status');
 
     let themeApi;
     let avatarApi;
@@ -229,9 +236,9 @@
                 colorInputs,
                 colorPickers,
                 themeSelect,
-                newThemeNameInput,
                 saveThemeBtn,
-                deleteThemeBtn,
+                renameThemeBtn,
+                newThemeBtn,
             },
             {
                 documentRef: document,
@@ -247,10 +254,9 @@
                 userAvatarFrameUrlInput,
                 unsplashAccessKeyInput,
                 avatarProfileSelect,
-                applyAvatarBtn,
-                deleteAvatarBtn,
-                newAvatarProfileNameInput,
                 saveAvatarBtn,
+                renameAvatarBtn,
+                newAvatarBtn,
                 avatarSubtabs,
                 avatarPanes,
                 adjustCharFrameBtn,
@@ -266,10 +272,9 @@
                 frameResetBtn,
                 frameCloseBtn,
                 frameProfileSelect,
-                applyFrameBtn,
-                deleteFrameBtn,
-                newFrameProfileNameInput,
                 saveFrameBtn,
+                renameFrameBtn,
+                newFrameBtn,
             },
             {
                 documentRef: document,
@@ -284,6 +289,102 @@
 
     } catch (error) {
         console.error('胡萝卜插件：加载设置模块失败', error);
+    }
+
+    // --- 气泡设置面板 ---
+    {
+        const s = getSettings();
+        if (!s.bubblePresets) s.bubblePresets = {};
+
+        const BUILTIN = {
+            ios: { name: 'iOS', text: '', voice: '', dimension: '' },
+            clean: { name: '简洁', text: '', voice: '', dimension: '' },
+        };
+        const allPresets = () => ({ ...BUILTIN, ...(getSettings().bubblePresets || {}) });
+        const currentKey = () => bubbleProfileSelect?.value || s.bubblePreset || 'ios';
+
+        function refreshBubbleSelect() {
+            if (!bubbleProfileSelect) return;
+            const presets = allPresets();
+            const cur = s.bubblePreset || 'ios';
+            bubbleProfileSelect.innerHTML = '';
+            for (const [key, preset] of Object.entries(presets)) {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = preset.name || key;
+                if (key === cur) opt.selected = true;
+                bubbleProfileSelect.appendChild(opt);
+            }
+        }
+
+        function loadBubblePreset() {
+            const key = currentKey();
+            s.bubblePreset = key;
+            saveSettings();
+            const preset = allPresets()[key] || BUILTIN.ios;
+            if (bubbleTextInput) bubbleTextInput.value = preset.text || '';
+            if (bubbleVoiceInput) bubbleVoiceInput.value = preset.voice || '';
+            if (bubbleDimensionInput) bubbleDimensionInput.value = preset.dimension || '';
+        }
+
+        function showBubbleStatus(msg) {
+            if (!bubbleStatus) return;
+            bubbleStatus.textContent = msg;
+            setTimeout(() => { bubbleStatus.textContent = ''; }, 2000);
+        }
+
+        refreshBubbleSelect();
+        loadBubblePreset();
+
+        bubbleProfileSelect?.addEventListener('change', () => {
+            loadBubblePreset();
+        });
+
+        bubbleSaveBtn?.addEventListener('click', () => {
+            const key = currentKey();
+            if (!s.bubblePresets) s.bubblePresets = {};
+            const existing = allPresets()[key] || {};
+            s.bubblePresets[key] = {
+                name: existing.name || key,
+                text: bubbleTextInput?.value || '',
+                voice: bubbleVoiceInput?.value || '',
+                dimension: bubbleDimensionInput?.value || '',
+            };
+            s.bubblePreset = key;
+            saveSettings();
+            showBubbleStatus('已保存当前气泡配置');
+        });
+
+        bubbleRenameBtn?.addEventListener('click', () => {
+            const key = currentKey();
+            const oldName = allPresets()[key]?.name || key;
+            const newName = prompt('编辑配置名', oldName);
+            if (!newName || newName === oldName) return;
+            if (!s.bubblePresets) s.bubblePresets = {};
+            s.bubblePresets[key] = {
+                ...(allPresets()[key] || {}),
+                name: newName,
+                text: bubbleTextInput?.value || '',
+                voice: bubbleVoiceInput?.value || '',
+                dimension: bubbleDimensionInput?.value || '',
+            };
+            saveSettings();
+            refreshBubbleSelect();
+            showBubbleStatus('已重命名');
+        });
+
+        bubbleNewBtn?.addEventListener('click', () => {
+            const name = prompt('新建配置名', '新气泡配置');
+            if (!name) return;
+            const key = `custom_${Date.now()}`;
+            if (!s.bubblePresets) s.bubblePresets = {};
+            s.bubblePresets[key] = { name, text: '', voice: '', dimension: '' };
+            s.bubblePreset = key;
+            saveSettings();
+            refreshBubbleSelect();
+            loadBubblePreset();
+            showBubbleStatus('已新建气泡配置');
+        });
     }
 
     // --- 4. 核心逻辑与事件监听 ---
@@ -933,6 +1034,8 @@
             documentRef: document,
         });
         unsplashProcessor.init();
+        const formatRenderer = initFormatRenderer({ documentRef: document });
+        formatRenderer?.setEnabled?.(regexEnabled);
         renderCategories();
         loadButtonPosition();
         applyFloatIcon(carrotButton);
@@ -964,6 +1067,7 @@
             applyFloatIcon,
             applyFloatVisibility,
             reprocessRegexPlaceholders,
+            reprocessFormatRendering: () => formatRenderer?.setEnabled?.(getSettings().regexEnabled !== false),
         });
         switchStickerCategory(Object.keys(stickerData)[0] || '');
         switchTab('text');

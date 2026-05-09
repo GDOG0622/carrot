@@ -62,9 +62,9 @@
         font-size: 24px;
     }
 
-    /* 移动端：定时设置布局优化 */
+    /* 移动端：定时设置布局优化 */
 
-    /* 移动端：同步设置布局优化 */
+    /* 移动端：同步设置布局优化 */
 }
 .cip-frosted-glass {
     background: var(--cip-panel-bg-color);
@@ -1005,6 +1005,57 @@ emoji-picker {
     color: #666;
     text-align: center;
 }
+.cip-preset-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.cip-preset-bar select {
+    flex: 1;
+    min-width: 0;
+}
+.cip-preset-icon-btn {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 6px;
+    font-size: 14px;
+    color: var(--cip-text-color, #333);
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+.cip-preset-icon-btn:hover {
+    opacity: 1;
+}
+.cip-bubble-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 4px 0;
+}
+.cip-bubble-section summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 0;
+    user-select: none;
+}
+.cip-bubble-section textarea {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 12px;
+    box-sizing: border-box;
+}
+.cip-bubble-tutorial {
+    min-height: 48px;
+    padding: 8px;
+    font-size: 12px;
+    color: #999;
+}
 
 #cip-extension-container .cip-ext-nav,
 #cip-extension-container .cip-ext-sync-btns,
@@ -1075,17 +1126,6 @@ emoji-picker {
 
 #cip-extension-container .cip-ext-sound-row select {
     flex: 1 1 auto;
-}
-
-#cip-input-panel select.cip-select-expanded,
-#cip-settings-panel select.cip-select-expanded,
-#cip-extension-container select.cip-select-expanded,
-#cip-add-category-modal select.cip-select-expanded,
-#cip-add-stickers-modal select.cip-select-expanded {
-    overflow-y: auto;
-    scrollbar-width: thin;
-    position: relative;
-    z-index: 1008;
 }
 
 #cip-extension-container .cip-ext-sound-manage button {
@@ -1162,4 +1202,228 @@ emoji-picker {
     display: block;
     width: 100%;
     min-height: 32px;
+}
+
+.carrot-format-rendered {
+    display: block;
+    width: 100%;
+}
+
+.carrot-format-text-line {
+    white-space: pre-wrap;
+}
+
+.carrot-format-original-line {
+    display: block;
+    white-space: normal;
+}
+
+.carrot-ios-line {
+    display: block;
+    width: 100%;
+    margin: 3px 0;
+}
+
+.carrot-ios-line.carrot-ios-user {
+    text-align: right;
+}
+
+.carrot-ios-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 78%;
+    vertical-align: top;
+}
+
+.carrot-ios-text {
+    line-height: 0;
+    font-size: 0;
+}
+
+.carrot-ios-tail {
+    position: absolute;
+    bottom: -2px;
+    width: 24px;
+    height: 16px;
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.carrot-ios-char .carrot-ios-tail {
+    left: -3px;
+    background: #e9e9eb;
+    -webkit-mask: radial-gradient(circle at 21px 4px, transparent 9px, black 9px);
+    mask: radial-gradient(circle at 5px 6px, transparent 9px, black 9px);
+}
+
+.carrot-ios-user .carrot-ios-tail {
+    right: -3px;
+    background: #6dcc6e;
+    -webkit-mask: radial-gradient(circle at 19px 6px, transparent 9px, black 9px);
+    mask: radial-gradient(circle at 19px 6px, transparent 9px, black 9px);
+}
+
+.carrot-ios-bubble {
+    position: relative;
+    z-index: 2;
+    display: inline-block;
+    padding: 10px 12px;
+    border-radius: 18px;
+    font: 16px/1.35 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.carrot-ios-char .carrot-ios-bubble {
+    background: #e9e9eb;
+    color: #000;
+}
+
+.carrot-ios-user .carrot-ios-bubble {
+    background: #6dcc6e;
+    color: #fff;
+    text-align: left;
+}
+
+.carrot-ios-voice-details {
+    cursor: pointer;
+}
+
+.carrot-ios-voice-summary {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    list-style: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.carrot-ios-voice-summary::-webkit-details-marker {
+    display: none;
+}
+
+.carrot-ios-play {
+    font-size: 16px;
+    margin-right: 8px;
+}
+
+.carrot-ios-char .carrot-ios-play {
+    color: #333;
+}
+
+.carrot-ios-user .carrot-ios-play {
+    color: #fff;
+}
+
+.carrot-ios-wave {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    gap: 2px;
+}
+
+.carrot-ios-wave-bar {
+    display: inline-block;
+    width: 3px;
+    height: var(--carrot-bar-height);
+    border-radius: 2px;
+}
+
+.carrot-ios-char .carrot-ios-wave-bar {
+    background-color: #555;
+}
+
+.carrot-ios-user .carrot-ios-wave-bar {
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.carrot-ios-voice-title {
+    font-weight: normal;
+    font-size: 15px;
+    margin-left: 12px;
+}
+
+.carrot-ios-voice-body {
+    padding: 8px 0 0;
+    margin-top: 8px;
+}
+
+.carrot-ios-char .carrot-ios-voice-body {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.carrot-ios-user .carrot-ios-voice-body {
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.carrot-ios-voice-body p {
+    margin: 0;
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.carrot-ios-dimension-card {
+    padding: 12px 16px;
+    min-width: 160px;
+}
+
+.carrot-ios-sticker-bubble {
+    padding: 8px;
+    line-height: 0;
+}
+
+.carrot-ios-sticker-bubble img {
+    display: block;
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 0;
+}
+
+.carrot-ios-dimension-title,
+.carrot-ios-dimension-value,
+.carrot-ios-dimension-note {
+    display: block;
+}
+
+.carrot-ios-dimension-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.carrot-ios-dimension-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 4px 0 8px;
+}
+
+.carrot-ios-dimension-note {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.carrot-ios-char .carrot-ios-dimension-title {
+    color: #352b2d;
+}
+
+.carrot-ios-char .carrot-ios-dimension-value {
+    color: #615055;
+}
+
+.carrot-ios-char .carrot-ios-dimension-note {
+    color: #817478;
+}
+
+.carrot-ios-user .carrot-ios-dimension-title {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.carrot-ios-user .carrot-ios-dimension-value {
+    color: #fff;
+}
+
+.carrot-ios-user .carrot-ios-dimension-note {
+    color: rgba(255, 255, 255, 0.75);
 }

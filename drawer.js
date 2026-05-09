@@ -20,7 +20,7 @@ function getOrCreateKeepAliveAudio() {
     audio.id = 'cip-keep-alive-audio';
     audio.src = KEEP_ALIVE_AUDIO_SRC;
     audio.loop = true;
-    audio.autoplay = true;
+    audio.autoplay = false;
     audio.preload = 'auto';
     audio.controls = true;
     audio.playsInline = true;
@@ -49,7 +49,6 @@ function tryPlayKeepAlive() {
 }
 
 function startKeepAlive() {
-    tryPlayKeepAlive();
     if (!_keepAliveUnlockBound) {
         const unlock = () => {
             if (!getSettings().notifKeepAlive) return;
@@ -363,6 +362,7 @@ export function injectExtensionDrawer({
     applyFloatIcon,
     applyFloatVisibility,
     reprocessRegexPlaceholders,
+    reprocessFormatRendering = () => {},
 }) {
     const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
     if (!container) return;
@@ -544,6 +544,7 @@ export function injectExtensionDrawer({
             } catch (e) {}
         }
         reprocessRegexPlaceholders();
+        reprocessFormatRendering();
     });
     floatIconInput?.addEventListener('change', () => {
         const next = floatIconInput.value.trim();
@@ -570,6 +571,7 @@ export function injectExtensionDrawer({
     });
 
     bindPromptPane(wrapper, s);
+
     bindSyncPane();
     initNotificationSounds();
 

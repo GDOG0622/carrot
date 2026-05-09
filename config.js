@@ -31,6 +31,8 @@ const DEFAULT_SETTINGS = {
     notifSuccessBody: '',
     notifFailTitle: 'AI 回复中断',
     notifFailBody: '',
+    bubblePreset: 'ios',
+    bubblePresets: {},
     syncFilename: '',
     localStorageMigrated: false,
 };
@@ -60,6 +62,8 @@ const legacyDefinitions = {
     cip_notif_success_body_v1: ['notifSuccessBody', parseString, stringifyString],
     cip_notif_fail_title_v1: ['notifFailTitle', parseString, stringifyString],
     cip_notif_fail_body_v1: ['notifFailBody', parseString, stringifyString],
+    cip_bubble_preset_v1: ['bubblePreset', parseString, stringifyString],
+    cip_bubble_presets_v1: ['bubblePresets', parseJson, stringifyJson],
 };
 
 const settingToLegacyKey = Object.fromEntries(
@@ -132,6 +136,7 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.frameProfiles)) settings.frameProfiles = {};
     if (!isPlainObject(settings.regexRuleSettings)) settings.regexRuleSettings = {};
     if (!isPlainObject(settings.notifSounds)) settings.notifSounds = {};
+    if (!isPlainObject(settings.bubblePresets)) settings.bubblePresets = {};
     settings.floatVisible = settings.floatVisible !== false;
     settings.floatSize = clampNumber(settings.floatSize, 20, 120, DEFAULT_SETTINGS.floatSize);
     settings.floatOpacity = clampNumber(settings.floatOpacity, 0.2, 1, DEFAULT_SETTINGS.floatOpacity);
