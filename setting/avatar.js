@@ -6,10 +6,9 @@ export function initAvatarSettings(
         userAvatarFrameUrlInput,
         unsplashAccessKeyInput,
         avatarProfileSelect,
-        applyAvatarBtn,
-        deleteAvatarBtn,
-        newAvatarProfileNameInput,
         saveAvatarBtn,
+        renameAvatarBtn,
+        newAvatarBtn,
         avatarSubtabs = [],
         avatarPanes = [],
         adjustCharFrameBtn,
@@ -25,10 +24,9 @@ export function initAvatarSettings(
         frameResetBtn,
         frameCloseBtn,
         frameProfileSelect,
-        applyFrameBtn,
-        deleteFrameBtn,
-        newFrameProfileNameInput,
         saveFrameBtn,
+        renameFrameBtn,
+        newFrameBtn,
     },
     {
         documentRef = document,
@@ -148,99 +146,85 @@ export function initAvatarSettings(
     }
 
     function saveAvatarProfile() {
-        if (!newAvatarProfileNameInput) return;
-        const name = newAvatarProfileNameInput.value.trim();
-        const charUrl = charAvatarUrlInput?.value.trim() || '';
-        const userUrl = userAvatarUrlInput?.value.trim() || '';
-        if (!name) {
-            alertRef('请输入配置名称！');
-            return;
-        }
-        if (!charUrl && !userUrl) {
-            alertRef('请至少输入一个头像链接！');
-            return;
-        }
-        avatarProfiles[name] = {
-            char: charUrl,
-            user: userUrl,
-        };
-        localStorageRef.setItem(
-            'cip_avatar_profiles_v1',
-            JSON.stringify(avatarProfiles),
-        );
-        newAvatarProfileNameInput.value = '';
-        populateAvatarSelect();
-        if (avatarProfileSelect) {
-            avatarProfileSelect.value = name;
-        }
-        alertRef('头像配置已保存！');
-    }
-
-    function deleteAvatarProfile() {
         if (!avatarProfileSelect) return;
         const selected = avatarProfileSelect.value;
-        if (!selected) {
-            alertRef('请先选择一个要删除的配置。');
-            return;
-        }
-        if (confirmRef(`确定要删除 "${selected}" 这个头像配置吗？`)) {
-            delete avatarProfiles[selected];
-            localStorageRef.setItem(
-                'cip_avatar_profiles_v1',
-                JSON.stringify(avatarProfiles),
-            );
-            populateAvatarSelect();
-            if (charAvatarUrlInput) charAvatarUrlInput.value = '';
-            if (userAvatarUrlInput) userAvatarUrlInput.value = '';
-            if (charAvatarFrameUrlInput) charAvatarFrameUrlInput.value = '';
-            if (userAvatarFrameUrlInput) userAvatarFrameUrlInput.value = '';
-        }
+        if (!selected) return;
+        avatarProfiles[selected] = {
+            char: charAvatarUrlInput?.value.trim() || '',
+            user: userAvatarUrlInput?.value.trim() || '',
+        };
+        localStorageRef.setItem('cip_avatar_profiles_v1', JSON.stringify(avatarProfiles));
+        localStorageRef.setItem('cip_last_avatar_profile_v1', selected);
+    }
+
+    function renameAvatarProfile() {
+        if (!avatarProfileSelect) return;
+        const selected = avatarProfileSelect.value;
+        if (!selected) return;
+        const newName = prompt('编辑配置名', selected);
+        if (!newName || newName === selected) return;
+        avatarProfiles[newName.trim()] = avatarProfiles[selected];
+        delete avatarProfiles[selected];
+        localStorageRef.setItem('cip_avatar_profiles_v1', JSON.stringify(avatarProfiles));
+        populateAvatarSelect();
+        avatarProfileSelect.value = newName.trim();
+        localStorageRef.setItem('cip_last_avatar_profile_v1', newName.trim());
+    }
+
+    function createAvatarProfile() {
+        const name = prompt('新建配置名', '新头像配置');
+        if (!name) return;
+        avatarProfiles[name.trim()] = {
+            char: charAvatarUrlInput?.value.trim() || '',
+            user: userAvatarUrlInput?.value.trim() || '',
+        };
+        localStorageRef.setItem('cip_avatar_profiles_v1', JSON.stringify(avatarProfiles));
+        populateAvatarSelect();
+        if (avatarProfileSelect) avatarProfileSelect.value = name.trim();
+        localStorageRef.setItem('cip_last_avatar_profile_v1', name.trim());
     }
 
     function saveFrameProfile() {
-        if (!newFrameProfileNameInput) return;
-        const name = newFrameProfileNameInput.value.trim();
-        const charFrameUrl = charAvatarFrameUrlInput?.value.trim() || '';
-        const userFrameUrl = userAvatarFrameUrlInput?.value.trim() || '';
-        if (!name) {
-            alertRef('请输入头像框配置名称！');
-            return;
-        }
-        if (!charFrameUrl && !userFrameUrl) {
-            alertRef('请至少输入一个头像框链接！');
-            return;
-        }
-        frameProfiles[name] = {
-            charFrame: charFrameUrl,
-            userFrame: userFrameUrl,
+        if (!frameProfileSelect) return;
+        const selected = frameProfileSelect.value;
+        if (!selected) return;
+        frameProfiles[selected] = {
+            charFrame: charAvatarFrameUrlInput?.value.trim() || '',
+            userFrame: userAvatarFrameUrlInput?.value.trim() || '',
             charFrameAdj: { ...frameAdjustments.char },
             userFrameAdj: { ...frameAdjustments.user },
         };
-        localStorageRef.setItem(
-            'cip_frame_profiles_v1',
-            JSON.stringify(frameProfiles),
-        );
-        newFrameProfileNameInput.value = '';
-        populateFrameSelect();
-        if (frameProfileSelect) frameProfileSelect.value = name;
-        alertRef('头像框配置已保存！');
+        localStorageRef.setItem('cip_frame_profiles_v1', JSON.stringify(frameProfiles));
+        localStorageRef.setItem('cip_last_frame_profile_v1', selected);
     }
 
-    function deleteFrameProfile() {
+    function renameFrameProfile() {
         if (!frameProfileSelect) return;
         const selected = frameProfileSelect.value;
-        if (!selected) {
-            alertRef('请先选择一个要删除的头像框配置。');
-            return;
-        }
-        if (confirmRef(`确定要删除 "${selected}" 这个头像框配置吗？`)) {
-            delete frameProfiles[selected];
-            localStorageRef.setItem(
-                'cip_frame_profiles_v1',
-                JSON.stringify(frameProfiles),
-            );
-            populateFrameSelect();
-        }
+        if (!selected) return;
+        const newName = prompt('编辑配置名', selected);
+        if (!newName || newName === selected) return;
+        frameProfiles[newName.trim()] = frameProfiles[selected];
+        delete frameProfiles[selected];
+        localStorageRef.setItem('cip_frame_profiles_v1', JSON.stringify(frameProfiles));
+        populateFrameSelect();
+        frameProfileSelect.value = newName.trim();
+        localStorageRef.setItem('cip_last_frame_profile_v1', newName.trim());
+    }
+
+    function createFrameProfile() {
+        const name = prompt('新建配置名', '新头像框配置');
+        if (!name) return;
+        frameProfiles[name.trim()] = {
+            charFrame: charAvatarFrameUrlInput?.value.trim() || '',
+            userFrame: userAvatarFrameUrlInput?.value.trim() || '',
+            charFrameAdj: { ...frameAdjustments.char },
+            userFrameAdj: { ...frameAdjustments.user },
+        };
+        localStorageRef.setItem('cip_frame_profiles_v1', JSON.stringify(frameProfiles));
+        populateFrameSelect();
+        if (frameProfileSelect) frameProfileSelect.value = name.trim();
+        localStorageRef.setItem('cip_last_frame_profile_v1', name.trim());
     }
 
     function loadAvatarProfiles() {
@@ -293,10 +277,6 @@ export function initAvatarSettings(
         }
     }
 
-    applyAvatarBtn?.addEventListener('click', () => {
-        applyFromInputs();
-    });
-
     avatarProfileSelect?.addEventListener('change', (e) => {
         const profileName = e.target.value;
         if (profileName && avatarProfiles[profileName]) {
@@ -314,7 +294,8 @@ export function initAvatarSettings(
     });
 
     saveAvatarBtn?.addEventListener('click', saveAvatarProfile);
-    deleteAvatarBtn?.addEventListener('click', deleteAvatarProfile);
+    renameAvatarBtn?.addEventListener('click', renameAvatarProfile);
+    newAvatarBtn?.addEventListener('click', createAvatarProfile);
 
     frameProfileSelect?.addEventListener('change', (e) => {
         const profileName = e.target.value;
@@ -342,12 +323,9 @@ export function initAvatarSettings(
         }
     });
 
-    applyFrameBtn?.addEventListener('click', () => {
-        applyFromInputs();
-    });
-
     saveFrameBtn?.addEventListener('click', saveFrameProfile);
-    deleteFrameBtn?.addEventListener('click', deleteFrameProfile);
+    renameFrameBtn?.addEventListener('click', renameFrameProfile);
+    newFrameBtn?.addEventListener('click', createFrameProfile);
 
     adjustCharFrameBtn?.addEventListener('click', () => {
         currentAdjustingFrame = 'char';

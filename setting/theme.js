@@ -3,9 +3,9 @@ export function initThemeSettings(
         colorInputs = [],
         colorPickers = [],
         themeSelect,
-        newThemeNameInput,
         saveThemeBtn,
-        deleteThemeBtn,
+        renameThemeBtn,
+        newThemeBtn,
     },
     {
         documentRef = document,
@@ -118,34 +118,36 @@ export function initThemeSettings(
     }
 
     function saveCurrentTheme() {
-        if (!newThemeNameInput) return;
-        const name = newThemeNameInput.value.trim();
-        if (!name) {
-            alert('请输入配色方案名称');
-            return;
-        }
-        themes[name] = getColorsFromInputs();
-        localStorageRef.setItem('cip_theme_data_v1', JSON.stringify(themes));
-        populateThemeSelect();
-        themeSelect && (themeSelect.value = name);
-        localStorageRef.setItem('cip_last_active_theme_v1', name);
-        alert('主题已保存');
-    }
-
-    function deleteSelectedTheme() {
         if (!themeSelect) return;
         const selected = themeSelect.value;
-        if (!selected || selected === 'default') {
-            alert('请选择要删除的自定义主题');
-            return;
-        }
-        if (confirm(`确定要删除主题 "${selected}" 吗？`)) {
-            delete themes[selected];
-            localStorageRef.setItem('cip_theme_data_v1', JSON.stringify(themes));
-            populateThemeSelect();
-            applyTheme(defaultTheme);
-            localStorageRef.setItem('cip_last_active_theme_v1', 'default');
-        }
+        if (!selected || selected === 'default') return;
+        themes[selected] = getColorsFromInputs();
+        localStorageRef.setItem('cip_theme_data_v1', JSON.stringify(themes));
+        localStorageRef.setItem('cip_last_active_theme_v1', selected);
+    }
+
+    function renameSelectedTheme() {
+        if (!themeSelect) return;
+        const selected = themeSelect.value;
+        if (!selected || selected === 'default') return;
+        const newName = prompt('编辑配置名', selected);
+        if (!newName || newName === selected) return;
+        themes[newName.trim()] = themes[selected];
+        delete themes[selected];
+        localStorageRef.setItem('cip_theme_data_v1', JSON.stringify(themes));
+        populateThemeSelect();
+        themeSelect.value = newName.trim();
+        localStorageRef.setItem('cip_last_active_theme_v1', newName.trim());
+    }
+
+    function createNewTheme() {
+        const name = prompt('新建配置名', '新主题');
+        if (!name) return;
+        themes[name.trim()] = getColorsFromInputs();
+        localStorageRef.setItem('cip_theme_data_v1', JSON.stringify(themes));
+        populateThemeSelect();
+        themeSelect && (themeSelect.value = name.trim());
+        localStorageRef.setItem('cip_last_active_theme_v1', name.trim());
     }
 
     function loadThemes() {
@@ -220,7 +222,8 @@ export function initThemeSettings(
     });
 
     saveThemeBtn?.addEventListener('click', saveCurrentTheme);
-    deleteThemeBtn?.addEventListener('click', deleteSelectedTheme);
+    renameThemeBtn?.addEventListener('click', renameSelectedTheme);
+    newThemeBtn?.addEventListener('click', createNewTheme);
 
     loadThemes();
 
