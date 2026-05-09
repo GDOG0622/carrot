@@ -239,36 +239,16 @@ function initNotificationSounds() {
                 return null;
             }
         };
-        let generationActive = false;
-        let receivedMessage = false;
-        let playedForGeneration = false;
-        let receivedMessageId = null;
-        const getLastAiMessageId = () => {
-            try {
-                const chat = window.SillyTavern?.getContext?.()?.chat || [];
-                for (let i = chat.length - 1; i >= 0; i--) {
-                    if (!chat[i]?.is_user) return i;
-                }
-                return null;
-            } catch (e) {
-                return null;
-            }
-        };
-        const hasMessageText = (messageId) => {
-            try {
-                const chat = window.SillyTavern?.getContext?.()?.chat || [];
-                const message = chat[messageId];
-                const text = (message?.mes || '').replace(/<[^>]*>/g, '').trim();
-                if (!text || text === '...') return false;
-                return !/^(error|exception|failed|api error|network error|generation failed)\b/i.test(text);
-            } catch (e) {
-                return true;
-            }
+        const run = {
+            active: false,
+            failed: false,
+            played: false,
+            lastErrorAt: 0,
         };
         const playSuccess = () => {
             const s = getSettings();
-            if (playedForGeneration) return;
-            playedForGeneration = true;
+            if (run.played) return;
+            run.played = true;
             if (s.notifSuccess) {
                 playSound(s.notifSuccess);
             }
@@ -278,8 +258,8 @@ function initNotificationSounds() {
         };
         const playFail = () => {
             const s = getSettings();
-            if (playedForGeneration) return;
-            playedForGeneration = true;
+            if (run.played) return;
+            run.played = true;
             if (s.notifFail) {
                 playSound(s.notifFail);
             }
@@ -287,6 +267,48 @@ function initNotificationSounds() {
                 showSystemNotification(s.notifFailTitle || 'AI reply interrupted', s.notifFailBody || '');
             }
         };
+        const markFailed = () => {
+            if (!run.active) return;
+            run.failed = true;
+            run.lastErrorAt = Date.now();
+        };
+        const errorTextLooksGenerationRelated = (...parts) => {
+            const text = parts
+                .filter((part) => part !== undefined && part !== null)
+                .map((part) => String(part))
+                .join(' ');
+            return /\b(4\d\d|5\d\d)\b|api|unauthorized|forbidden|rate limit|quota|network error|failed to fetch|request failed|timeout|connection refused|ECONN|ETIMEDOUT|ENOTFOUND|ECONNRESET/i.test(text);
+        };
+        if (window.toastr?.error && !window.toastr._carrotNotifErrorPatched) {
+            const originalToastrError = window.toastr.error.bind(window.toastr);
+            window.toastr.error = (...args) => {
+                if (errorTextLooksGenerationRelated(...args)) {
+                    markFailed();
+                }
+                return originalToastrError(...args);
+            };
+            window.toastr._carrotNotifErrorPatched = true;
+        }
+        if (!window.fetch._carrotNotifErrorPatched) {
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async (...args) => {
+                try {
+                    const response = await originalFetch(...args);
+                    const url = String(args[0]?.url || args[0] || '');
+                    if (run.active && url.includes('/api/') && !response.ok && response.status >= 400) {
+                        markFailed();
+                    }
+                    return response;
+                } catch (error) {
+                    const url = String(args[0]?.url || args[0] || '');
+                    if (run.active && url.includes('/api/')) {
+                        markFailed();
+                    }
+                    throw error;
+                }
+            };
+            window.fetch._carrotNotifErrorPatched = true;
+        }
         const tryBind = () => {
             const es = getEventSource();
             if (!es) {
@@ -294,43 +316,31 @@ function initNotificationSounds() {
                 return;
             }
             es.on(evTypes.GENERATION_STARTED, () => {
-                generationActive = true;
-                receivedMessage = false;
-                playedForGeneration = false;
-                receivedMessageId = null;
-            });
-            es.on(evTypes.MESSAGE_RECEIVED, (messageId, type) => {
-                if (!generationActive) return;
-                if (type === 'first_message') return;
-                if (!hasMessageText(messageId)) return;
-                receivedMessage = true;
-                receivedMessageId = messageId;
+                run.active = true;
+                run.failed = false;
+                run.played = false;
+                run.lastErrorAt = 0;
             });
             es.on(evTypes.GENERATION_STOPPED, () => {
-                if (!generationActive) return;
+                if (!run.active) return;
+                markFailed();
                 setTimeout(() => {
-                    if (!generationActive || playedForGeneration) return;
-                    const messageId = receivedMessageId ?? getLastAiMessageId();
-                    if (hasMessageText(messageId)) {
-                        playSuccess();
-                    } else {
-                        playFail();
-                    }
-                    generationActive = false;
+                    if (!run.active || run.played) return;
+                    playFail();
+                    run.active = false;
                 }, 300);
             });
             es.on(evTypes.GENERATION_ENDED, () => {
                 setTimeout(() => {
-                    if (generationActive && !playedForGeneration) {
-                        const messageId = receivedMessageId ?? getLastAiMessageId();
-                        if (hasMessageText(messageId)) {
-                            receivedMessage = true;
-                            playSuccess();
-                        } else if (!receivedMessage) {
+                    if (run.active && !run.played) {
+                        const hasRecentError = run.failed || (Date.now() - run.lastErrorAt < 2000);
+                        if (hasRecentError) {
                             playFail();
+                        } else {
+                            playSuccess();
                         }
                     }
-                    generationActive = false;
+                    run.active = false;
                 }, 300);
             });
         };
