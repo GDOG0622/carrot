@@ -1204,20 +1204,6 @@ emoji-picker {
     min-height: 32px;
 }
 
-.carrot-format-rendered {
-    display: block;
-    width: 100%;
-}
-
-.carrot-format-text-line {
-    white-space: pre-wrap;
-}
-
-.carrot-format-original-line {
-    display: block;
-    white-space: normal;
-}
-
 .carrot-ios-line {
     display: block;
     width: 100%;

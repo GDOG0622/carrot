@@ -9,7 +9,183 @@ const defaultDocument = typeof document !== 'undefined' ? document : null;
 const TEXT_NODE_FILTER =
     typeof NodeFilter !== 'undefined' ? NodeFilter.SHOW_TEXT : 4;
 
+function getMessageId(element) {
+    const mes = element?.closest?.('.mes');
+    if (!mes) return null;
+    const candidates = [
+        mes.getAttribute('mesid'),
+        mes.dataset?.mesid,
+        mes.dataset?.id,
+        mes.id?.match(/\d+/)?.[0],
+    ];
+    for (const value of candidates) {
+        if (value === undefined || value === null || value === '') continue;
+        const parsed = Number(value);
+        if (Number.isInteger(parsed)) return parsed;
+    }
+    return null;
+}
+
+function isUserMessage(element) {
+    const mes = element?.closest?.('.mes');
+    const messageId = getMessageId(element);
+    try {
+        const chat = window.SillyTavern?.getContext?.()?.chat || [];
+        if (messageId !== null && chat[messageId]) {
+            return !!chat[messageId].is_user;
+        }
+    } catch (error) {}
+
+    if (!mes) return false;
+    return (
+        mes.classList.contains('user_mes') ||
+        mes.classList.contains('is_user') ||
+        mes.getAttribute('is_user') === 'true' ||
+        mes.dataset?.isUser === 'true'
+    );
+}
+
+function createBubbleShell(documentRef, sourceNode, kind = 'text') {
+    const doc = documentRef || defaultDocument;
+    if (!doc) return {};
+    const side = isUserMessage(sourceNode) ? 'user' : 'char';
+    const line = doc.createElement('div');
+    line.className = `carrot-ios-line carrot-ios-${side}`;
+    const wrap = doc.createElement('div');
+    wrap.className = `carrot-ios-wrap carrot-ios-${kind}`;
+    const tail = doc.createElement('span');
+    tail.className = 'carrot-ios-tail';
+    wrap.appendChild(tail);
+    line.appendChild(wrap);
+    return { line, wrap, side };
+}
+
+function createTextBubbleNode({ documentRef, sourceNode, text }) {
+    const doc = documentRef || defaultDocument;
+    if (!doc) return null;
+    const { line, wrap } = createBubbleShell(doc, sourceNode, 'text');
+    const bubble = doc.createElement('div');
+    bubble.className = 'carrot-ios-bubble';
+    bubble.textContent = text;
+    wrap.appendChild(bubble);
+    return line;
+}
+
+function createVoiceBubbleNode({ documentRef, sourceNode, title, body }) {
+    const doc = documentRef || defaultDocument;
+    if (!doc) return null;
+    const { line, wrap } = createBubbleShell(doc, sourceNode, 'voice');
+    const details = doc.createElement('details');
+    details.className = 'carrot-ios-bubble carrot-ios-voice-details';
+
+    const summary = doc.createElement('summary');
+    summary.className = 'carrot-ios-voice-summary';
+
+    const play = doc.createElement('span');
+    play.className = 'carrot-ios-play';
+    play.textContent = '▶';
+
+    const wave = doc.createElement('span');
+    wave.className = 'carrot-ios-wave';
+    [60, 80, 40, 90, 50, 75].forEach((height) => {
+        const bar = doc.createElement('span');
+        bar.className = 'carrot-ios-wave-bar';
+        bar.style.setProperty('--carrot-bar-height', `${height}%`);
+        wave.appendChild(bar);
+    });
+
+    const titleNode = doc.createElement('span');
+    titleNode.className = 'carrot-ios-voice-title';
+    titleNode.textContent = title;
+    summary.append(play, wave, titleNode);
+
+    const bodyNode = doc.createElement('div');
+    bodyNode.className = 'carrot-ios-voice-body';
+    const paragraph = doc.createElement('p');
+    paragraph.textContent = body;
+    bodyNode.appendChild(paragraph);
+
+    details.append(summary, bodyNode);
+    wrap.appendChild(details);
+    return line;
+}
+
+function createDimensionBubbleNode({ documentRef, sourceNode, title, value, note }) {
+    const doc = documentRef || defaultDocument;
+    if (!doc) return null;
+    const { line, wrap } = createBubbleShell(doc, sourceNode, 'dimension');
+    const bubble = doc.createElement('div');
+    bubble.className = 'carrot-ios-bubble carrot-ios-dimension-card';
+
+    const titleNode = doc.createElement('span');
+    titleNode.className = 'carrot-ios-dimension-title';
+    titleNode.textContent = title;
+    const valueNode = doc.createElement('span');
+    valueNode.className = 'carrot-ios-dimension-value';
+    valueNode.textContent = value;
+    const noteNode = doc.createElement('span');
+    noteNode.className = 'carrot-ios-dimension-note';
+    noteNode.textContent = note;
+
+    bubble.append(titleNode, valueNode, noteNode);
+    wrap.appendChild(bubble);
+    return line;
+}
+
+function isBracketOnlyPlaceholder(text) {
+    return /^\[[^\[\]]+\]$/.test(String(text || '').trim());
+}
+
 const REGEX_RULES = [
+    {
+        id: 'carrot-ios-text-bubble',
+        name: 'iOS 文字气泡',
+        patternSource: '^\\s*(?:"([^"\\n]*)"|“([^”\\n]*)”)\\s*$',
+        flags: 'gm',
+        defaultReplacement: '$1$2',
+        createNode({ documentRef, groups, sourceNode }) {
+            const body = (groups[0] || groups[1] || '').trim();
+            if (!body || isBracketOnlyPlaceholder(body)) return null;
+            return createTextBubbleNode({
+                documentRef,
+                sourceNode,
+                text: body,
+            });
+        },
+    },
+    {
+        id: 'carrot-ios-voice-bubble',
+        name: 'iOS 语音气泡',
+        patternSource: '^\\s*=([^|=]+)\\|([\\s\\S]*?)=\\s*$',
+        flags: 'gm',
+        defaultReplacement: '$2',
+        createNode({ documentRef, groups, sourceNode }) {
+            const [title = '', body = ''] = groups;
+            return createVoiceBubbleNode({
+                documentRef,
+                sourceNode,
+                title: title.trim(),
+                body: body.trim(),
+            });
+        },
+    },
+    {
+        id: 'carrot-ios-dimension-bubble',
+        name: 'iOS 超次元气泡',
+        patternSource: '^\\s*\\[([^|\\]]+)\\|([^|\\]]+)\\|([^\\]]+)\\]\\s*$',
+        flags: 'gm',
+        defaultReplacement: '$3',
+        createNode({ documentRef, groups, sourceNode }) {
+            const [title = '', value = '', note = ''] = groups;
+            return createDimensionBubbleNode({
+                documentRef,
+                sourceNode,
+                title: title.trim(),
+                value: value.trim(),
+                note: note.trim(),
+            });
+        },
+    },
     {
         id: 'bhl-timestamp',
         name: '时间戳',
@@ -608,6 +784,7 @@ function replaceMatchesInTextNode({
             config: ruleConfig,
             rule,
             fallbackText: matchText,
+            sourceNode: targetNode,
         });
 
         if (replacementNode) {
@@ -686,6 +863,7 @@ function createReplacementNode({
     config,
     documentRef,
     fallbackText = '',
+    sourceNode = null,
 }) {
     const doc = documentRef || defaultDocument;
     if (!doc) return null;
@@ -695,6 +873,7 @@ function createReplacementNode({
             documentRef: doc,
             groups,
             config,
+            sourceNode,
         });
     }
 

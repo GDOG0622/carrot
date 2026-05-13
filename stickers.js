@@ -34,7 +34,7 @@ export function replaceStickerPlaceholders({
         let url = stickerLookup.get(lookupKey);
         if (!url) {
             const stripped = lookupKey.replace(
-                /\.(?:jpe?g|png|gif|webp|svg|bmp|avif)$/i,
+                /\.(?:jpe?g|png|gif|webp|svg|bmp|avif|mp3|mp4|wav|ogg)$/i,
                 '',
             );
             if (stripped !== lookupKey) {

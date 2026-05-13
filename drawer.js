@@ -362,7 +362,6 @@ export function injectExtensionDrawer({
     applyFloatIcon,
     applyFloatVisibility,
     reprocessRegexPlaceholders,
-    reprocessFormatRendering = () => {},
 }) {
     const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
     if (!container) return;
@@ -544,7 +543,6 @@ export function injectExtensionDrawer({
             } catch (e) {}
         }
         reprocessRegexPlaceholders();
-        reprocessFormatRendering();
     });
     floatIconInput?.addEventListener('change', () => {
         const next = floatIconInput.value.trim();
