@@ -1479,6 +1479,12 @@ emoji-picker {
 
 .carrot-avatar-transparent-user {
     flex-direction: row-reverse;
+    justify-content: flex-start;
+    text-align: right;
+}
+
+.carrot-avatar-transparent-user.carrot-avatar-transparent-voice-line {
+    justify-content: flex-start;
 }
 
 .carrot-avatar-transparent-avatar {
