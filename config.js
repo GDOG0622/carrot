@@ -21,7 +21,6 @@ const DEFAULT_SETTINGS = {
     frameProfiles: {},
     lastFrameProfile: '',
     unsplashAccessKey: '',
-    regexRuleSettings: {},
     notifSounds: {},
     notifSuccess: '',
     notifFail: '',
@@ -48,7 +47,6 @@ const legacyDefinitions = {
     cip_unsplash_access_key_v1: ['unsplashAccessKey', parseString, stringifyString],
     cip_sync_filename_v1: ['syncFilename', parseString, stringifyString],
     cip_regex_enabled_v1: ['regexEnabled', parseBoolean, stringifyBoolean],
-    cip_regex_rule_settings_v1: ['regexRuleSettings', parseJson, stringifyJson],
     cip_float_visible_v1: ['floatVisible', parseBoolean, stringifyBoolean],
     cip_float_icon_v1: ['floatIconUrl', parseString, stringifyString],
     cip_float_size_v1: ['floatSize', parseNumber, stringifyString],
@@ -134,7 +132,6 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.themeData)) settings.themeData = {};
     if (!isPlainObject(settings.avatarProfiles)) settings.avatarProfiles = {};
     if (!isPlainObject(settings.frameProfiles)) settings.frameProfiles = {};
-    if (!isPlainObject(settings.regexRuleSettings)) settings.regexRuleSettings = {};
     if (!isPlainObject(settings.notifSounds)) settings.notifSounds = {};
     if (!isPlainObject(settings.bubblePresets)) settings.bubblePresets = {};
     settings.floatVisible = settings.floatVisible !== false;

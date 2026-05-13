@@ -27,51 +27,13 @@
     // 首次运行时从 localStorage 迁移数据
     migrateFromLocalStorage(localStorage);
 
-    let applyRegexReplacements = () => false;
-    let getRegexEnabled = () => true;
-    let setRegexEnabled = () => {};
-    let clearRegexState = () => {};
-    let regexModuleReady = false;
-    let regexEnabled = true;
-
-    try {
-        const regexModule = await import('./regex.js');
-        applyRegexReplacements =
-            typeof regexModule.applyRegexReplacements === 'function'
-                ? regexModule.applyRegexReplacements
-                : applyRegexReplacements;
-        getRegexEnabled =
-            typeof regexModule.getRegexEnabled === 'function'
-                ? regexModule.getRegexEnabled
-                : getRegexEnabled;
-        setRegexEnabled =
-            typeof regexModule.setRegexEnabled === 'function'
-                ? regexModule.setRegexEnabled
-                : setRegexEnabled;
-        clearRegexState =
-            typeof regexModule.clearRegexState === 'function'
-                ? regexModule.clearRegexState
-                : clearRegexState;
-
-        regexModuleReady =
-            typeof regexModule.applyRegexReplacements === 'function';
-
-        if (regexModuleReady) {
-            try {
-                regexEnabled = !!getRegexEnabled();
-            } catch (error) {
-                regexEnabled = true;
-                console.warn('胡萝卜插件：读取正则开关状态失败', error);
-            }
-        }
-    } catch (error) {
-        console.warn('胡萝卜插件：加载正则模块失败', error);
-    }
+    let renderEnabled = getSettings().regexEnabled !== false;
 
     const stickerPlaceholderRegex = /\[([^\[\]]+?)\]/g;
 
     let unsplashAccessKey = getSettings().unsplashAccessKey || '';
     let unsplashProcessor = null;
+    let formatRenderer = null;
 
     function setUnsplashAccessKey(value) {
         unsplashAccessKey = value.trim();
@@ -298,6 +260,7 @@
 
         const BUILTIN = {
             ios: { name: 'iOS', text: '', voice: '', dimension: '' },
+            avatarTransparent: { name: '带头像透明', text: '', voice: '', dimension: '' },
             clean: { name: '简洁', text: '', voice: '', dimension: '' },
         };
         const allPresets = () => ({ ...BUILTIN, ...(getSettings().bubblePresets || {}) });
@@ -338,6 +301,7 @@
 
         bubbleProfileSelect?.addEventListener('change', () => {
             loadBubblePreset();
+            formatRenderer?.reprocess?.();
         });
 
         bubbleSaveBtn?.addEventListener('click', () => {
@@ -353,6 +317,7 @@
             s.bubblePreset = key;
             saveSettings();
             showBubbleStatus('已保存当前气泡配置');
+            formatRenderer?.reprocess?.();
         });
 
         bubbleRenameBtn?.addEventListener('click', () => {
@@ -371,6 +336,7 @@
             saveSettings();
             refreshBubbleSelect();
             showBubbleStatus('已重命名');
+            formatRenderer?.reprocess?.();
         });
 
         bubbleNewBtn?.addEventListener('click', () => {
@@ -384,6 +350,7 @@
             refreshBubbleSelect();
             loadBubblePreset();
             showBubbleStatus('已新建气泡配置');
+            formatRenderer?.reprocess?.();
         });
     }
 
@@ -581,7 +548,6 @@
         const chatContainer = document.getElementById('chat');
         if (!chatContainer) return;
         chatContainer.querySelectorAll('.mes_text').forEach((element) => {
-            clearRegexState(element);
             replaceStickerPlaceholders(element);
         });
     }
@@ -1025,17 +991,14 @@
     function init() {
         loadStickerData();
         unsplashProcessor = createUnsplashProcessor({
-            applyRegexReplacements,
-            getRegexEnabled: () => regexEnabled,
-            replaceStickerPlaceholders,
             replacePlaceholderWithNode,
             getUnsplashAccessKey: () => unsplashAccessKey,
-            clearRegexState,
             documentRef: document,
         });
-        const formatRenderer = initFormatRenderer({
+        formatRenderer = initFormatRenderer({
             documentRef: document,
-            getEnabled: () => regexEnabled,
+            getEnabled: () => renderEnabled,
+            getPreset: () => getSettings().bubblePreset || 'ios',
             afterProcess: runPostRenderProcessors,
         });
         renderCategories();
@@ -1048,8 +1011,7 @@
             floatIconUrl,
             floatSize,
             floatOpacity,
-            regexEnabled,
-            regexModuleReady,
+            renderEnabled,
             setFloatVisible: (value) => {
                 floatVisible = value;
             },
@@ -1062,9 +1024,10 @@
             setFloatOpacity: (value) => {
                 floatOpacity = value;
             },
-            setRegexEnabled: (value) => {
-                regexEnabled = value;
-                setRegexEnabled(value);
+            setRenderEnabled: (value) => {
+                renderEnabled = value;
+                getSettings().regexEnabled = value ? true : false;
+                saveSettings();
             },
             applyFloatIcon,
             applyFloatVisibility,

@@ -58,12 +58,41 @@ function createBubbleShell(documentRef, side, kind = 'text') {
     return { line, wrap };
 }
 
-function createTextBubble(documentRef, token, side) {
+function createTextBubble(documentRef, token, side, preset) {
+    if (preset === 'avatarTransparent') {
+        return createAvatarTransparentBubble(documentRef, token, side);
+    }
     const { line, wrap } = createBubbleShell(documentRef, side, 'text');
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble';
     bubble.textContent = token.body;
     wrap.appendChild(bubble);
+    return line;
+}
+
+function createAvatarTransparentBubble(documentRef, token, side) {
+    const line = documentRef.createElement('div');
+    line.className = `carrot-avatar-transparent-line carrot-avatar-transparent-${side}`;
+
+    const avatar = documentRef.createElement('div');
+    avatar.className =
+        side === 'user'
+            ? 'carrot-avatar-transparent-avatar custom-B_U_avar B_U_avar'
+            : 'carrot-avatar-transparent-avatar custom-B_C_avar B_C_avar';
+
+    const bubble = documentRef.createElement('div');
+    bubble.className = 'carrot-avatar-transparent-bubble';
+
+    const shine = documentRef.createElement('span');
+    shine.className = 'carrot-avatar-transparent-shine';
+    const dot = documentRef.createElement('span');
+    dot.className = 'carrot-avatar-transparent-dot';
+    const body = documentRef.createElement('span');
+    body.className = 'carrot-avatar-transparent-body';
+    body.textContent = token.body;
+
+    bubble.append(shine, body, dot);
+    line.append(avatar, bubble);
     return line;
 }
 
@@ -263,7 +292,7 @@ function parseTokens(text, isUser) {
     return changed ? tokens : null;
 }
 
-function renderTokens(element, tokens, isUser, documentRef) {
+function renderTokens(element, tokens, isUser, documentRef, preset) {
     const sourceText = readMessageText(element);
     const side = isUser ? 'user' : 'char';
     if (!originalHtmlByElement.has(element)) {
@@ -273,12 +302,13 @@ function renderTokens(element, tokens, isUser, documentRef) {
     element.innerHTML = '';
     element.setAttribute(PROCESSED_ATTR, 'true');
     element.dataset.carrotFormatSource = sourceText;
+    element.dataset.carrotFormatPreset = preset;
 
     const rendered = documentRef.createElement('div');
     rendered.className = RENDERED_CLASS;
     tokens.forEach((token) => {
         if (token.type === 'textBubble') {
-            rendered.appendChild(createTextBubble(documentRef, token, side));
+            rendered.appendChild(createTextBubble(documentRef, token, side, preset));
         } else if (token.type === 'voiceBubble') {
             rendered.appendChild(createVoiceBubble(documentRef, token, side));
         } else if (token.type === 'dimensionBubble') {
@@ -307,39 +337,43 @@ function restoreElement(element) {
     }
     element.removeAttribute(PROCESSED_ATTR);
     delete element.dataset.carrotFormatSource;
+    delete element.dataset.carrotFormatPreset;
     return true;
 }
 
 export function applyFormatRendering(
     element,
-    { enabled = true, documentRef = document } = {},
+    { enabled = true, documentRef = document, preset = 'ios' } = {},
 ) {
     if (!element) return false;
     if (!enabled) return restoreElement(element);
 
     if (element.getAttribute(PROCESSED_ATTR) === 'true') {
         const source = element.dataset.carrotFormatSource || '';
+        const renderedPreset = element.dataset.carrotFormatPreset || 'ios';
         const current = readMessageText(element);
-        if (source === current) return false;
+        if (source === current && renderedPreset === preset) return false;
         restoreElement(element);
     }
 
     const user = isUserMessage(element);
     const tokens = parseTokens(readMessageText(element), user);
     if (!tokens) return false;
-    renderTokens(element, tokens, user, documentRef);
+    renderTokens(element, tokens, user, documentRef, preset);
     return true;
 }
 
 export function initFormatRenderer({
     documentRef = document,
     getEnabled = () => true,
+    getPreset = () => 'ios',
     afterProcess = null,
 } = {}) {
     const processElement = (element) => {
         const changed = applyFormatRendering(element, {
             enabled: getEnabled(),
             documentRef,
+            preset: getPreset(),
         });
         if (typeof afterProcess === 'function') {
             afterProcess(element);

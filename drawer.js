@@ -352,13 +352,12 @@ export function injectExtensionDrawer({
     floatIconUrl,
     floatSize,
     floatOpacity,
-    regexEnabled,
-    regexModuleReady,
+    renderEnabled,
     setFloatVisible,
     setFloatIconUrl,
     setFloatSize,
     setFloatOpacity,
-    setRegexEnabled,
+    setRenderEnabled,
     applyFloatIcon,
     applyFloatVisibility,
     reprocessRegexPlaceholders,
@@ -389,8 +388,8 @@ export function injectExtensionDrawer({
                             <span>显示浮标</span>
                         </label>
                         <label class="cip-ext-label checkbox_label">
-                            <input type="checkbox" id="cip-ext-regex-toggle" ${regexEnabled ? 'checked' : ''}>
-                            <span>内置正则</span>
+                            <input type="checkbox" id="cip-ext-render-toggle" ${renderEnabled ? 'checked' : ''}>
+                            <span>美化渲染</span>
                         </label>
                     </div>
                     <div class="cip-ext-field">
@@ -490,7 +489,7 @@ export function injectExtensionDrawer({
                 </div>
                 <div id="cip-ext-pane-sync" class="cip-ext-pane" style="display:none;">
                     <div class="cip-ext-field">
-                        <small>导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、Unsplash、正则等）</small>
+                        <small>导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、Unsplash、美化渲染等）</small>
                     </div>
                     <div class="cip-ext-sync-btns">
                         <input type="file" id="cip-ext-import-file" accept=".json" style="display:none;">
@@ -519,7 +518,7 @@ export function injectExtensionDrawer({
     }));
 
     const floatVisibleCheckbox = document.getElementById('cip-ext-float-visible');
-    const regexToggleCheckbox = document.getElementById('cip-ext-regex-toggle');
+    const renderToggleCheckbox = document.getElementById('cip-ext-render-toggle');
     const floatIconInput = document.getElementById('cip-ext-float-icon');
     const floatSizeInput = document.getElementById('cip-ext-float-size');
     const floatSizeValue = document.getElementById('cip-ext-float-size-value');
@@ -533,15 +532,11 @@ export function injectExtensionDrawer({
         saveSettings();
         applyFloatVisibility(carrotButton);
     });
-    regexToggleCheckbox?.addEventListener('change', () => {
-        const next = regexToggleCheckbox.checked;
+    renderToggleCheckbox?.addEventListener('change', () => {
+        const next = renderToggleCheckbox.checked;
         getSettings().regexEnabled = next;
         saveSettings();
-        if (regexModuleReady) {
-            try {
-                setRegexEnabled(next);
-            } catch (e) {}
-        }
+        setRenderEnabled(next);
         reprocessRegexPlaceholders();
     });
     floatIconInput?.addEventListener('change', () => {

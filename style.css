@@ -1467,3 +1467,84 @@ emoji-picker {
 .carrot-ios-user .carrot-ios-dimension-note {
     color: rgba(255, 255, 255, 0.75);
 }
+
+.carrot-avatar-transparent-line {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    margin-bottom: 18px;
+    animation: message-pop 0.3s ease-out;
+}
+
+.carrot-avatar-transparent-user {
+    flex-direction: row-reverse;
+}
+
+.carrot-avatar-transparent-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    padding: 5px;
+    overflow: visible !important;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+}
+
+.carrot-avatar-transparent-char .carrot-avatar-transparent-avatar {
+    margin-right: 10px;
+}
+
+.carrot-avatar-transparent-user .carrot-avatar-transparent-avatar {
+    margin-left: 10px;
+}
+
+.carrot-avatar-transparent-bubble {
+    position: relative;
+    max-width: min(78%, 640px);
+    padding: 10px 14px;
+    border: 1px solid rgba(200, 200, 200, 0.3) !important;
+    border-radius: 24px !important;
+    background: transparent !important;
+    box-shadow:
+        -4px 4px 8px rgba(0, 0, 0, 0.1),
+        2px -2px 4px rgba(255, 255, 255, 0.3),
+        inset -6px 6px 8px rgba(0, 0, 0, 0.1),
+        inset 6px -6px 8px rgba(255, 255, 255, 0.5) !important;
+    line-height: 1.4;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    transition: transform 0.2s;
+}
+
+.carrot-avatar-transparent-body {
+    position: relative;
+    z-index: 1;
+}
+
+.carrot-avatar-transparent-shine {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 12px;
+    height: 6px;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: white;
+    opacity: 0.9;
+    transform: rotate(45deg);
+    z-index: 2;
+}
+
+.carrot-avatar-transparent-dot {
+    position: absolute;
+    top: 15px;
+    right: 5px;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: white;
+    opacity: 0.6;
+    z-index: 2;
+}
