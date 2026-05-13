@@ -17,7 +17,7 @@
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
-    const { initFormatRenderer } = await import('./format-renderer.js?v=20260513-regex-format-1');
+    const { initFormatRenderer } = await import('./format-renderer.js?v=20260513-regex-format-2');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -607,6 +607,23 @@
     function rebuildStickerLookup() {
         stickerLookup = buildStickerLookup(stickerData);
     }
+    function resolveStickerReference(description) {
+        const raw = String(description || '').trim();
+        if (!raw || raw.startsWith('http')) return null;
+        let lookupKey = raw;
+        let url = stickerLookup.get(lookupKey);
+        if (!url) {
+            const stripped = lookupKey.replace(
+                /\.(?:jpe?g|png|gif|webp|svg|bmp|avif|mp3|mp4|wav|ogg)$/i,
+                '',
+            );
+            if (stripped !== lookupKey) {
+                lookupKey = stripped;
+                url = stickerLookup.get(lookupKey);
+            }
+        }
+        return url ? { description: lookupKey, url } : null;
+    }
     function replaceStickerPlaceholders(element) {
         return replaceStickerPlaceholdersCore({
             element,
@@ -1049,6 +1066,7 @@
         const formatRenderer = initFormatRenderer({
             documentRef: document,
             afterProcess: applyPostFormatProcessors,
+            resolveSticker: resolveStickerReference,
         });
         formatRenderer?.setEnabled?.(true);
         renderCategories();

@@ -2,6 +2,7 @@ const PROCESSED_ATTR = 'data-carrot-format-rendered';
 const RENDERED_CLASS = 'carrot-format-rendered';
 const originalHtmlByElement = new WeakMap();
 let rendererEnabled = true;
+let resolveStickerUrl = null;
 
 window.carrotFormatRendererLoaded = true;
 
@@ -74,6 +75,14 @@ function lineHasMedia(nodes) {
     });
 }
 
+function lineHasRegexNode(nodes) {
+    return nodes.some((node) => {
+        if (node.nodeType !== Node.ELEMENT_NODE) return false;
+        return node.matches?.('[data-cip-regex-node="1"]')
+            || !!node.querySelector?.('[data-cip-regex-node="1"]');
+    });
+}
+
 function splitDomLines(element) {
     const host = element.querySelector('p') || element;
     const lines = [];
@@ -103,10 +112,38 @@ function parseQuoteLine(line, isUser) {
         ? line.match(/^\s*“([\s\S]+)”\s*$/)
         : line.match(/^\s*"([\s\S]+)"\s*$/);
     if (!match) return null;
-    if (/^\[[^|\]]+\]$/.test(match[1].trim())) return null;
+    const body = match[1].trim();
+    const sticker = parseStickerReference(body);
+    if (sticker) return sticker;
+    if (/^\[[^|\]]+\]$/.test(body)) return null;
     return {
         type: 'textBubble',
         body: match[1],
+    };
+}
+
+function parseTimestampLine(line) {
+    const match = line.match(/^\s*『([\s\S]*?)\s+\|\s*([\s\S]*?)』\s*$/);
+    if (!match) return null;
+    return {
+        type: 'timestamp',
+        time: match[1].trim(),
+        text: match[2].trim(),
+    };
+}
+
+function parseStickerReference(text) {
+    const match = String(text || '').trim().match(/^\[([^\[\]]+)\]$/);
+    if (!match) return null;
+    const description = match[1].trim();
+    if (!description || description.startsWith('http')) return null;
+    if (typeof resolveStickerUrl !== 'function') return null;
+    const sticker = resolveStickerUrl(description);
+    if (!sticker?.url) return null;
+    return {
+        type: 'stickerReference',
+        description: sticker.description || description,
+        url: sticker.url,
     };
 }
 
@@ -161,6 +198,13 @@ function parseTokens(text, isUser) {
     for (let i = 0; i < lines.length; i += 1) {
         const line = lines[i];
 
+        const timestamp = parseTimestampLine(line);
+        if (timestamp) {
+            tokens.push(timestamp);
+            changed = true;
+            continue;
+        }
+
         const voice = parseVoiceBlock(lines, i);
         if (voice) {
             tokens.push(voice.token);
@@ -193,7 +237,8 @@ function parseTokens(text, isUser) {
 }
 
 function parseSingleLineToken(text, isUser) {
-    return parseDimensionLine(text, isUser)
+    return parseTimestampLine(text)
+        || parseDimensionLine(text, isUser)
         || parseQuoteLine(text, isUser)
         || parseVoiceBlock([text], 0)?.token
         || null;
@@ -256,6 +301,30 @@ function createStickerBubble(documentRef, token, side) {
     bubble.appendChild(token.image.cloneNode(true));
     wrap.appendChild(bubble);
     return line;
+}
+
+function createStickerReferenceBubble(documentRef, token, side) {
+    const img = documentRef.createElement('img');
+    img.src = token.url;
+    img.alt = 'Sticker';
+    img.style.display = 'block';
+    img.style.width = '100px';
+    img.style.height = '100px';
+    img.style.objectFit = 'contain';
+    img.style.borderRadius = '0px';
+    img.setAttribute('description', token.description);
+    return createStickerBubble(documentRef, { image: img }, side);
+}
+
+function createTimestampLine(documentRef, token) {
+    const container = documentRef.createElement('div');
+    container.style.textAlign = 'center';
+    container.style.color = '#8e8e93';
+    container.style.fontFamily = "'linja waso', sans-serif";
+    container.style.fontSize = '13px';
+    container.style.margin = '12px 0';
+    container.textContent = `${token.time}\u00a0\u00a0\u00a0${token.text}`;
+    return container;
 }
 
 function createVoiceBubble(documentRef, token, side) {
@@ -339,10 +408,14 @@ function renderTokens(element, tokens, isUser, documentRef) {
             rendered.appendChild(createTextBubble(documentRef, token, side));
         } else if (token.type === 'stickerBubble') {
             rendered.appendChild(createStickerBubble(documentRef, token, side));
+        } else if (token.type === 'stickerReference') {
+            rendered.appendChild(createStickerReferenceBubble(documentRef, token, side));
         } else if (token.type === 'voiceBubble') {
             rendered.appendChild(createVoiceBubble(documentRef, token, side));
         } else if (token.type === 'dimensionBubble') {
             rendered.appendChild(createDimensionBubble(documentRef, token, side));
+        } else if (token.type === 'timestamp') {
+            rendered.appendChild(createTimestampLine(documentRef, token));
         } else if (token.type === 'originalLine') {
             rendered.appendChild(createOriginalLine(documentRef, token.nodes));
         } else {
@@ -373,6 +446,10 @@ function parseMixedDomTokens(element, isUser) {
 
     lines.forEach((nodes) => {
         const text = normalizeText(nodes.map((node) => node.innerText || node.textContent || '').join('')).trim();
+        if (lineHasRegexNode(nodes)) {
+            tokens.push({ type: 'originalLine', nodes });
+            return;
+        }
         const sticker = parseStickerBubbleLine(text, nodes, isUser);
         if (sticker) {
             tokens.push(sticker);
@@ -411,7 +488,7 @@ export function applyFormatRendering(element, { documentRef = document } = {}) {
 
     const user = isUserMessage(element);
     const text = readMessageText(element);
-    const tokens = element.querySelector('img')
+    const tokens = element.querySelector('img, [data-cip-regex-node="1"]')
         ? parseMixedDomTokens(element, user)
         : parseTokens(text, user);
     if (!tokens) return false;
@@ -504,7 +581,10 @@ window.carrotFormatScan = () => {
 export function initFormatRenderer({
     documentRef = document,
     afterProcess = null,
+    resolveSticker = null,
 } = {}) {
+    resolveStickerUrl =
+        typeof resolveSticker === 'function' ? resolveSticker : null;
     const processElement = (element) => {
         const changed = applyFormatRendering(element, { documentRef });
         if (changed && typeof afterProcess === 'function') {
