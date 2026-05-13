@@ -71,6 +71,24 @@ function createTextBubble(documentRef, token, side, preset) {
 }
 
 function createAvatarTransparentBubble(documentRef, token, side) {
+    const line = createAvatarTransparentLine(documentRef, side);
+    const bubble = documentRef.createElement('div');
+    bubble.className = 'carrot-avatar-transparent-bubble';
+
+    const body = documentRef.createElement('span');
+    body.className = 'carrot-avatar-transparent-body';
+    body.textContent = token.body;
+
+    bubble.append(
+        createAvatarTransparentShine(documentRef),
+        body,
+        createAvatarTransparentDot(documentRef),
+    );
+    line.appendChild(bubble);
+    return line;
+}
+
+function createAvatarTransparentLine(documentRef, side) {
     const line = documentRef.createElement('div');
     line.className = `carrot-avatar-transparent-line carrot-avatar-transparent-${side}`;
 
@@ -80,23 +98,26 @@ function createAvatarTransparentBubble(documentRef, token, side) {
             ? 'carrot-avatar-transparent-avatar custom-B_U_avar B_U_avar'
             : 'carrot-avatar-transparent-avatar custom-B_C_avar B_C_avar';
 
-    const bubble = documentRef.createElement('div');
-    bubble.className = 'carrot-avatar-transparent-bubble';
-
-    const shine = documentRef.createElement('span');
-    shine.className = 'carrot-avatar-transparent-shine';
-    const dot = documentRef.createElement('span');
-    dot.className = 'carrot-avatar-transparent-dot';
-    const body = documentRef.createElement('span');
-    body.className = 'carrot-avatar-transparent-body';
-    body.textContent = token.body;
-
-    bubble.append(shine, body, dot);
-    line.append(avatar, bubble);
+    line.appendChild(avatar);
     return line;
 }
 
-function createVoiceBubble(documentRef, token, side) {
+function createAvatarTransparentShine(documentRef) {
+    const shine = documentRef.createElement('span');
+    shine.className = 'carrot-avatar-transparent-shine';
+    return shine;
+}
+
+function createAvatarTransparentDot(documentRef) {
+    const dot = documentRef.createElement('span');
+    dot.className = 'carrot-avatar-transparent-dot';
+    return dot;
+}
+
+function createVoiceBubble(documentRef, token, side, preset) {
+    if (preset === 'avatarTransparent') {
+        return createAvatarTransparentVoice(documentRef, token, side);
+    }
     const { line, wrap } = createBubbleShell(documentRef, side, 'voice');
     const details = documentRef.createElement('details');
     details.className = 'carrot-ios-bubble carrot-ios-voice-details';
@@ -133,7 +154,56 @@ function createVoiceBubble(documentRef, token, side) {
     return line;
 }
 
-function createDimensionBubble(documentRef, token, side) {
+function createAvatarTransparentVoice(documentRef, token, side) {
+    const line = createAvatarTransparentLine(documentRef, side);
+    line.classList.add('carrot-avatar-transparent-voice-line');
+
+    const details = documentRef.createElement('details');
+    details.className = 'carrot-avatar-transparent-voice';
+
+    const summary = documentRef.createElement('summary');
+    summary.className = 'carrot-avatar-transparent-voice-summary';
+
+    const play = documentRef.createElement('span');
+    play.className = 'carrot-avatar-transparent-voice-play';
+    play.textContent = '▶';
+
+    const wave = documentRef.createElement('span');
+    wave.className = 'carrot-avatar-transparent-voice-wave';
+    [60, 80, 40, 90, 50, 75].forEach((height) => {
+        const bar = documentRef.createElement('span');
+        bar.className = 'carrot-avatar-transparent-voice-bar';
+        bar.style.setProperty('--carrot-bar-height', `${height}%`);
+        wave.appendChild(bar);
+    });
+
+    const title = documentRef.createElement('span');
+    title.className = 'carrot-avatar-transparent-voice-title';
+    title.textContent = token.title;
+
+    summary.append(
+        play,
+        wave,
+        title,
+        createAvatarTransparentShine(documentRef),
+        createAvatarTransparentDot(documentRef),
+    );
+
+    const body = documentRef.createElement('div');
+    body.className = 'carrot-avatar-transparent-voice-body';
+    const paragraph = documentRef.createElement('p');
+    paragraph.textContent = token.body;
+    body.appendChild(paragraph);
+
+    details.append(summary, body);
+    line.appendChild(details);
+    return line;
+}
+
+function createDimensionBubble(documentRef, token, side, preset) {
+    if (preset === 'avatarTransparent') {
+        return createAvatarTransparentDimension(documentRef, token, side);
+    }
     const { line, wrap } = createBubbleShell(documentRef, side, 'dimension');
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble carrot-ios-dimension-card';
@@ -150,6 +220,32 @@ function createDimensionBubble(documentRef, token, side) {
 
     bubble.append(title, value, note);
     wrap.appendChild(bubble);
+    return line;
+}
+
+function createAvatarTransparentDimension(documentRef, token, side) {
+    const line = createAvatarTransparentLine(documentRef, side);
+    const bubble = documentRef.createElement('div');
+    bubble.className = 'carrot-avatar-transparent-dimension';
+
+    const title = documentRef.createElement('span');
+    title.className = 'carrot-avatar-transparent-dimension-title';
+    title.textContent = token.title;
+    const value = documentRef.createElement('span');
+    value.className = 'carrot-avatar-transparent-dimension-value';
+    value.textContent = token.value;
+    const note = documentRef.createElement('span');
+    note.className = 'carrot-avatar-transparent-dimension-note';
+    note.textContent = token.note;
+
+    bubble.append(
+        title,
+        value,
+        note,
+        createAvatarTransparentShine(documentRef),
+        createAvatarTransparentDot(documentRef),
+    );
+    line.appendChild(bubble);
     return line;
 }
 
@@ -310,9 +406,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset) {
         if (token.type === 'textBubble') {
             rendered.appendChild(createTextBubble(documentRef, token, side, preset));
         } else if (token.type === 'voiceBubble') {
-            rendered.appendChild(createVoiceBubble(documentRef, token, side));
+            rendered.appendChild(createVoiceBubble(documentRef, token, side, preset));
         } else if (token.type === 'dimensionBubble') {
-            rendered.appendChild(createDimensionBubble(documentRef, token, side));
+            rendered.appendChild(createDimensionBubble(documentRef, token, side, preset));
         } else if (token.type === 'timestamp') {
             rendered.appendChild(createTimestampLine(documentRef, token));
         } else if (token.type === 'system') {
