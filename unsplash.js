@@ -84,12 +84,8 @@ async function requestUnsplashImage(query, unsplashAccessKey) {
 }
 
 export function createUnsplashProcessor({
-    applyRegexReplacements,
-    getRegexEnabled,
-    replaceStickerPlaceholders,
     replacePlaceholderWithNode,
     getUnsplashAccessKey,
-    clearRegexState,
     documentRef = document,
 }) {
     const processedMessages = new WeakSet();
@@ -97,19 +93,20 @@ export function createUnsplashProcessor({
     async function processMessageElement(element) {
         if (!element) return;
 
-        const replacedRegex = applyRegexReplacements(element, {
-            enabled: getRegexEnabled(),
-            replacePlaceholderWithNode,
-            documentRef,
-        });
-        const replacedSticker = replaceStickerPlaceholders(element);
-
         const text = element.textContent || element.innerText || '';
         const hasUnsplashPlaceholder = unsplashPlaceholderRegex.test(text);
         unsplashPlaceholderRegex.lastIndex = 0;
 
         if (!hasUnsplashPlaceholder) {
             delete element.dataset.unsplashSignature;
+            processedMessages.delete(element);
+            return;
+        }
+
+        if (!getUnsplashAccessKey()) {
+            delete element.dataset.unsplashSignature;
+            processedMessages.delete(element);
+            return;
         }
 
         const matches = Array.from(text.matchAll(unsplashPlaceholderRegex));
@@ -131,7 +128,7 @@ export function createUnsplashProcessor({
         processedMessages.add(element);
         element.dataset.unsplashAttempts = String(attempts + 1);
 
-        let replacedAny = replacedSticker || replacedRegex;
+        let replacedAny = false;
         for (const match of matches) {
             const placeholder = match[0];
             const description = match[1]?.trim();
@@ -261,7 +258,6 @@ export function createUnsplashProcessor({
             delete element.dataset.unsplashAttempts;
             delete element.dataset.unsplashSignature;
             processedMessages.delete(element);
-            clearRegexState?.(element);
             processMessageElement(element);
         });
     }

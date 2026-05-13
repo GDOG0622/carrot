@@ -17,6 +17,7 @@
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
+    const { initFormatRenderer } = await import('./format-renderer.js?v=20260513-renderer-all-1');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -577,18 +578,18 @@
     }
 
     function reprocessRegexPlaceholders() {
-        if (!regexModuleReady) return;
         const chatContainer = document.getElementById('chat');
         if (!chatContainer) return;
         chatContainer.querySelectorAll('.mes_text').forEach((element) => {
             clearRegexState(element);
-            applyRegexReplacements(element, {
-                enabled: regexEnabled,
-                replacePlaceholderWithNode,
-                documentRef: document,
-            });
             replaceStickerPlaceholders(element);
         });
+    }
+
+    function runPostRenderProcessors(element) {
+        if (!element) return;
+        replaceStickerPlaceholders(element);
+        unsplashProcessor?.processMessageElement?.(element);
     }
 
     function rebuildStickerLookup() {
@@ -1032,7 +1033,11 @@
             clearRegexState,
             documentRef: document,
         });
-        unsplashProcessor.init();
+        const formatRenderer = initFormatRenderer({
+            documentRef: document,
+            getEnabled: () => regexEnabled,
+            afterProcess: runPostRenderProcessors,
+        });
         renderCategories();
         loadButtonPosition();
         applyFloatIcon(carrotButton);
@@ -1063,7 +1068,10 @@
             },
             applyFloatIcon,
             applyFloatVisibility,
-            reprocessRegexPlaceholders,
+            reprocessRegexPlaceholders: () => {
+                formatRenderer?.reprocess?.();
+                reprocessRegexPlaceholders();
+            },
         });
         switchStickerCategory(Object.keys(stickerData)[0] || '');
         switchTab('text');

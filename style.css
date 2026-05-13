@@ -1204,6 +1204,60 @@ emoji-picker {
     min-height: 32px;
 }
 
+.carrot-format-rendered {
+    display: block;
+    width: 100%;
+}
+
+.carrot-render-text-line {
+    white-space: pre-wrap;
+}
+
+.carrot-render-timestamp {
+    margin: 12px 0;
+    color: #8e8e93;
+    font-family: 'linja waso', sans-serif;
+    font-size: 13px;
+    text-align: center;
+}
+
+.carrot-render-system {
+    margin: 0;
+    color: #888;
+    font-size: 14px;
+    text-align: center;
+}
+
+.carrot-render-recall {
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+.carrot-render-recall details {
+    display: inline-block;
+}
+
+.carrot-render-recall summary {
+    color: #999;
+    cursor: pointer;
+    font-size: 13px;
+    font-style: italic;
+    list-style: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.carrot-render-recall-content {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.04);
+    color: #555;
+    font-size: 14px;
+    font-style: normal;
+    line-height: 1.4;
+    text-align: left;
+}
+
 .carrot-ios-line {
     display: block;
     width: 100%;

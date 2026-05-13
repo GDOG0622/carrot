@@ -980,6 +980,8 @@ export function applyRegexReplacements(element, options = {}) {
         return restoreOriginal(element);
     }
 
+    return false;
+
     if (!documentRef) {
         return false;
     }
