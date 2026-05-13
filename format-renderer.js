@@ -420,15 +420,22 @@ export function applyFormatRendering(element, { documentRef = document } = {}) {
     return true;
 }
 
-export function setFormatRendererEnabled(enabled, { documentRef = document } = {}) {
+export function setFormatRendererEnabled(
+    enabled,
+    { documentRef = document, afterProcess = null } = {},
+) {
     rendererEnabled = enabled !== false;
     const chatContainer = documentRef.getElementById('chat');
     if (!chatContainer) return;
     chatContainer.querySelectorAll('.mes_text').forEach((element) => {
+        let changed = false;
         if (rendererEnabled) {
-            applyFormatRendering(element, { documentRef });
+            changed = applyFormatRendering(element, { documentRef });
         } else {
-            restoreElement(element);
+            changed = restoreElement(element);
+        }
+        if (changed && typeof afterProcess === 'function') {
+            afterProcess(element);
         }
     });
 }
@@ -494,8 +501,17 @@ window.carrotFormatScan = () => {
     };
 };
 
-export function initFormatRenderer({ documentRef = document } = {}) {
-    const processElement = (element) => applyFormatRendering(element, { documentRef });
+export function initFormatRenderer({
+    documentRef = document,
+    afterProcess = null,
+} = {}) {
+    const processElement = (element) => {
+        const changed = applyFormatRendering(element, { documentRef });
+        if (changed && typeof afterProcess === 'function') {
+            afterProcess(element);
+        }
+        return changed;
+    };
 
     const observeChat = (chatContainer) => {
         chatContainer.querySelectorAll('.mes_text').forEach(processElement);
@@ -503,6 +519,18 @@ export function initFormatRenderer({ documentRef = document } = {}) {
         const observer = new MutationObserver((mutations) => {
             const pending = new Set();
             mutations.forEach((mutation) => {
+                const mutationElement =
+                    mutation.target?.nodeType === Node.ELEMENT_NODE
+                        ? mutation.target
+                        : mutation.target?.parentElement;
+                if (
+                    mutationElement?.closest?.(
+                        '.carrot-format-rendered, [data-cip-regex-node="1"]',
+                    )
+                ) {
+                    return;
+                }
+
                 if (mutation.type === 'characterData') {
                     const element = mutation.target.parentElement?.closest?.('.mes_text');
                     if (element) pending.add(element);
@@ -539,8 +567,13 @@ export function initFormatRenderer({ documentRef = document } = {}) {
 
     if (setup()) {
         return {
-            setEnabled: (enabled) => setFormatRendererEnabled(enabled, { documentRef }),
-            reprocess: () => setFormatRendererEnabled(rendererEnabled, { documentRef }),
+            setEnabled: (enabled) =>
+                setFormatRendererEnabled(enabled, { documentRef, afterProcess }),
+            reprocess: () =>
+                setFormatRendererEnabled(rendererEnabled, {
+                    documentRef,
+                    afterProcess,
+                }),
         };
     }
 
@@ -553,7 +586,12 @@ export function initFormatRenderer({ documentRef = document } = {}) {
     });
 
     return {
-        setEnabled: (enabled) => setFormatRendererEnabled(enabled, { documentRef }),
-        reprocess: () => setFormatRendererEnabled(rendererEnabled, { documentRef }),
+        setEnabled: (enabled) =>
+            setFormatRendererEnabled(enabled, { documentRef, afterProcess }),
+        reprocess: () =>
+            setFormatRendererEnabled(rendererEnabled, {
+                documentRef,
+                afterProcess,
+            }),
     };
 }

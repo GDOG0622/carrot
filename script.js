@@ -17,7 +17,7 @@
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
-    const { initFormatRenderer } = await import('./format-renderer.js?v=20260509-ios-format-7');
+    const { initFormatRenderer } = await import('./format-renderer.js?v=20260513-regex-format-1');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -592,6 +592,18 @@
         });
     }
 
+    function applyPostFormatProcessors(element) {
+        if (!element) return;
+        if (regexModuleReady) {
+            applyRegexReplacements(element, {
+                enabled: regexEnabled,
+                replacePlaceholderWithNode,
+                documentRef: document,
+            });
+        }
+        replaceStickerPlaceholders(element);
+    }
+
     function rebuildStickerLookup() {
         stickerLookup = buildStickerLookup(stickerData);
     }
@@ -1034,8 +1046,11 @@
             documentRef: document,
         });
         unsplashProcessor.init();
-        const formatRenderer = initFormatRenderer({ documentRef: document });
-        formatRenderer?.setEnabled?.(regexEnabled);
+        const formatRenderer = initFormatRenderer({
+            documentRef: document,
+            afterProcess: applyPostFormatProcessors,
+        });
+        formatRenderer?.setEnabled?.(true);
         renderCategories();
         loadButtonPosition();
         applyFloatIcon(carrotButton);
@@ -1067,7 +1082,7 @@
             applyFloatIcon,
             applyFloatVisibility,
             reprocessRegexPlaceholders,
-            reprocessFormatRendering: () => formatRenderer?.setEnabled?.(getSettings().regexEnabled !== false),
+            reprocessFormatRendering: () => formatRenderer?.reprocess?.(),
         });
         switchStickerCategory(Object.keys(stickerData)[0] || '');
         switchTab('text');
