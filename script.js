@@ -175,9 +175,20 @@
     const bubbleSaveBtn = get('cip-bubble-save-btn');
     const bubbleRenameBtn = get('cip-bubble-rename-btn');
     const bubbleNewBtn = get('cip-bubble-new-btn');
-    const bubbleTextInput = get('cip-bubble-text');
-    const bubbleVoiceInput = get('cip-bubble-voice');
-    const bubbleDimensionInput = get('cip-bubble-dimension');
+    const bubbleInputs = {
+        text: {
+            user: get('cip-bubble-text-user'),
+            char: get('cip-bubble-text-char'),
+        },
+        voice: {
+            user: get('cip-bubble-voice-user'),
+            char: get('cip-bubble-voice-char'),
+        },
+        dimension: {
+            user: get('cip-bubble-dimension-user'),
+            char: get('cip-bubble-dimension-char'),
+        },
+    };
     const bubbleStatus = get('cip-bubble-status');
 
     let themeApi;
@@ -265,6 +276,30 @@
         };
         const allPresets = () => ({ ...BUILTIN, ...(getSettings().bubblePresets || {}) });
         const currentKey = () => bubbleProfileSelect?.value || s.bubblePreset || 'ios';
+        const normalizeBubblePair = (value) => {
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                return {
+                    user: String(value.user || ''),
+                    char: String(value.char || ''),
+                };
+            }
+            const text = typeof value === 'string' ? value : '';
+            return { user: text, char: text };
+        };
+        const readBubbleFields = () => ({
+            text: {
+                user: bubbleInputs.text.user?.value || '',
+                char: bubbleInputs.text.char?.value || '',
+            },
+            voice: {
+                user: bubbleInputs.voice.user?.value || '',
+                char: bubbleInputs.voice.char?.value || '',
+            },
+            dimension: {
+                user: bubbleInputs.dimension.user?.value || '',
+                char: bubbleInputs.dimension.char?.value || '',
+            },
+        });
 
         function refreshBubbleSelect() {
             if (!bubbleProfileSelect) return;
@@ -285,9 +320,15 @@
             s.bubblePreset = key;
             saveSettings();
             const preset = allPresets()[key] || BUILTIN.ios;
-            if (bubbleTextInput) bubbleTextInput.value = preset.text || '';
-            if (bubbleVoiceInput) bubbleVoiceInput.value = preset.voice || '';
-            if (bubbleDimensionInput) bubbleDimensionInput.value = preset.dimension || '';
+            const text = normalizeBubblePair(preset.text);
+            const voice = normalizeBubblePair(preset.voice);
+            const dimension = normalizeBubblePair(preset.dimension);
+            if (bubbleInputs.text.user) bubbleInputs.text.user.value = text.user;
+            if (bubbleInputs.text.char) bubbleInputs.text.char.value = text.char;
+            if (bubbleInputs.voice.user) bubbleInputs.voice.user.value = voice.user;
+            if (bubbleInputs.voice.char) bubbleInputs.voice.char.value = voice.char;
+            if (bubbleInputs.dimension.user) bubbleInputs.dimension.user.value = dimension.user;
+            if (bubbleInputs.dimension.char) bubbleInputs.dimension.char.value = dimension.char;
         }
 
         function showBubbleStatus(msg) {
@@ -308,11 +349,10 @@
             const key = currentKey();
             if (!s.bubblePresets) s.bubblePresets = {};
             const existing = allPresets()[key] || {};
+            const fields = readBubbleFields();
             s.bubblePresets[key] = {
                 name: existing.name || key,
-                text: bubbleTextInput?.value || '',
-                voice: bubbleVoiceInput?.value || '',
-                dimension: bubbleDimensionInput?.value || '',
+                ...fields,
             };
             s.bubblePreset = key;
             saveSettings();
@@ -326,12 +366,11 @@
             const newName = prompt('编辑配置名', oldName);
             if (!newName || newName === oldName) return;
             if (!s.bubblePresets) s.bubblePresets = {};
+            const fields = readBubbleFields();
             s.bubblePresets[key] = {
                 ...(allPresets()[key] || {}),
                 name: newName,
-                text: bubbleTextInput?.value || '',
-                voice: bubbleVoiceInput?.value || '',
-                dimension: bubbleDimensionInput?.value || '',
+                ...fields,
             };
             saveSettings();
             refreshBubbleSelect();
@@ -344,7 +383,12 @@
             if (!name) return;
             const key = `custom_${Date.now()}`;
             if (!s.bubblePresets) s.bubblePresets = {};
-            s.bubblePresets[key] = { name, text: '', voice: '', dimension: '' };
+            s.bubblePresets[key] = {
+                name,
+                text: { user: '', char: '' },
+                voice: { user: '', char: '' },
+                dimension: { user: '', char: '' },
+            };
             s.bubblePreset = key;
             saveSettings();
             refreshBubbleSelect();

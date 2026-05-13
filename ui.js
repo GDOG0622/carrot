@@ -218,15 +218,36 @@ export function createUI() {
                     </div>
                     <details class="cip-bubble-section" open>
                         <summary>文字</summary>
-                        <textarea id="cip-bubble-text" placeholder="文字格式的气泡美化代码..."></textarea>
+                        <label class="cip-bubble-code-row">
+                            <span>user</span>
+                            <input type="text" id="cip-bubble-text-user" placeholder="用户文字气泡美化代码">
+                        </label>
+                        <label class="cip-bubble-code-row">
+                            <span>char</span>
+                            <input type="text" id="cip-bubble-text-char" placeholder="角色文字气泡美化代码">
+                        </label>
                     </details>
                     <details class="cip-bubble-section">
                         <summary>语音</summary>
-                        <textarea id="cip-bubble-voice" placeholder="语音格式的气泡美化代码..."></textarea>
+                        <label class="cip-bubble-code-row">
+                            <span>user</span>
+                            <input type="text" id="cip-bubble-voice-user" placeholder="用户语音气泡美化代码">
+                        </label>
+                        <label class="cip-bubble-code-row">
+                            <span>char</span>
+                            <input type="text" id="cip-bubble-voice-char" placeholder="角色语音气泡美化代码">
+                        </label>
                     </details>
                     <details class="cip-bubble-section">
                         <summary>超次元</summary>
-                        <textarea id="cip-bubble-dimension" placeholder="超次元格式的气泡美化代码..."></textarea>
+                        <label class="cip-bubble-code-row">
+                            <span>user</span>
+                            <input type="text" id="cip-bubble-dimension-user" placeholder="用户超次元气泡美化代码">
+                        </label>
+                        <label class="cip-bubble-code-row">
+                            <span>char</span>
+                            <input type="text" id="cip-bubble-dimension-char" placeholder="角色超次元气泡美化代码">
+                        </label>
                     </details>
                     <details class="cip-bubble-section">
                         <summary>自定义教程</summary>
