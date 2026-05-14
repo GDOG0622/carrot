@@ -17,7 +17,7 @@
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
-    const { initFormatRenderer } = await import('./format-renderer.js?v=20260514-render-marker-1');
+    const { initFormatRenderer } = await import('./format-renderer.js?v=20260514-inner-force-1');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({

@@ -1,4 +1,5 @@
 const PROCESSED_ATTR = 'data-carrot-format-rendered';
+const RENDERING_ATTR = 'data-carrot-format-rendering';
 const RENDERED_CLASS = 'carrot-format-rendered';
 const originalHtmlByElement = new WeakMap();
 
@@ -410,6 +411,7 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
     const side = isUser ? 'user' : 'char';
     originalHtmlByElement.set(element, element.innerHTML);
 
+    element.setAttribute(RENDERING_ATTR, 'true');
     element.innerHTML = '';
     element.setAttribute(PROCESSED_ATTR, 'true');
     element.dataset.carrotFormatSource = sourceText;
@@ -436,6 +438,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
     });
 
     element.appendChild(rendered);
+    setTimeout(() => {
+        element.removeAttribute(RENDERING_ATTR);
+    }, 0);
 }
 
 function restoreElement(element) {
@@ -459,7 +464,7 @@ function restoreElement(element) {
 
 export function applyFormatRendering(
     element,
-    { enabled = true, documentRef = document, preset = 'ios' } = {},
+    { enabled = true, documentRef = document, preset = 'ios', force = false } = {},
 ) {
     if (!element) return false;
     if (!enabled) return restoreElement(element);
@@ -469,7 +474,7 @@ export function applyFormatRendering(
         const renderedPreset = element.dataset.carrotFormatPreset || 'ios';
         const current = readSourceText(element);
         const hasRenderedContent = !!element.querySelector(`:scope > .${RENDERED_CLASS}`);
-        if (source === current && renderedPreset === preset && hasRenderedContent) return false;
+        if (!force && source === current && renderedPreset === preset && hasRenderedContent) return false;
         restoreElement(element);
     }
 
@@ -487,11 +492,12 @@ export function initFormatRenderer({
     getPreset = () => 'ios',
     afterProcess = null,
 } = {}) {
-    const processElement = (element) => {
+    const processElement = (element, options = {}) => {
         const changed = applyFormatRendering(element, {
             enabled: getEnabled(),
             documentRef,
             preset: getPreset(),
+            force: !!options.force,
         });
         if (typeof afterProcess === 'function') {
             afterProcess(element);
@@ -504,12 +510,20 @@ export function initFormatRenderer({
 
         const observer = new MutationObserver((mutations) => {
             const pending = new Set();
+            const forced = new Set();
             mutations.forEach((mutation) => {
                 const mutationElement =
                     mutation.target?.nodeType === Node.ELEMENT_NODE
                         ? mutation.target
                         : mutation.target?.parentElement;
-                if (mutationElement?.closest?.(`.${RENDERED_CLASS}`)) return;
+                const renderedElement = mutationElement?.closest?.(`.${RENDERED_CLASS}`);
+                if (renderedElement) {
+                    const element = renderedElement.closest?.('.mes_text');
+                    if (element && element.getAttribute(RENDERING_ATTR) !== 'true') {
+                        forced.add(element);
+                    }
+                    return;
+                }
 
                 if (mutation.type === 'characterData') {
                     const element = mutation.target.parentElement?.closest?.('.mes_text');
@@ -528,6 +542,7 @@ export function initFormatRenderer({
                 });
             });
             pending.forEach((element) => setTimeout(() => processElement(element), 0));
+            forced.forEach((element) => setTimeout(() => processElement(element, { force: true }), 0));
         });
 
         observer.observe(chatContainer, {
