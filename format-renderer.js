@@ -19,15 +19,29 @@ function getMessageId(element) {
     return null;
 }
 
-function isUserMessage(element) {
-    const mes = element?.closest?.('.mes');
+function getChatMessage(element) {
     const messageId = getMessageId(element);
+    if (messageId === null) return null;
     try {
         const chat = window.SillyTavern?.getContext?.()?.chat || [];
-        if (messageId !== null && chat[messageId]) {
-            return !!chat[messageId].is_user;
-        }
-    } catch (error) {}
+        return chat[messageId] || null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function getChatMessageText(element) {
+    const message = getChatMessage(element);
+    if (!message) return null;
+    if (typeof message.mes === 'string') return normalizeText(message.mes);
+    if (typeof message.message === 'string') return normalizeText(message.message);
+    return null;
+}
+
+function isUserMessage(element) {
+    const mes = element?.closest?.('.mes');
+    const message = getChatMessage(element);
+    if (message) return !!message.is_user;
 
     if (!mes) return false;
     return (
@@ -44,6 +58,10 @@ function normalizeText(text) {
 
 function readMessageText(element) {
     return normalizeText(element?.innerText || element?.textContent || '');
+}
+
+function readSourceText(element) {
+    return getChatMessageText(element) ?? readMessageText(element);
 }
 
 function createBubbleShell(documentRef, side, kind = 'text') {
@@ -388,12 +406,9 @@ function parseTokens(text, isUser) {
     return changed ? tokens : null;
 }
 
-function renderTokens(element, tokens, isUser, documentRef, preset) {
-    const sourceText = readMessageText(element);
+function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) {
     const side = isUser ? 'user' : 'char';
-    if (!originalHtmlByElement.has(element)) {
-        originalHtmlByElement.set(element, element.innerHTML);
-    }
+    originalHtmlByElement.set(element, element.innerHTML);
 
     element.innerHTML = '';
     element.setAttribute(PROCESSED_ATTR, 'true');
@@ -425,11 +440,16 @@ function renderTokens(element, tokens, isUser, documentRef, preset) {
 
 function restoreElement(element) {
     if (!element || element.getAttribute(PROCESSED_ATTR) !== 'true') return false;
+    const renderedSource = element.dataset.carrotFormatSource || '';
+    const currentSource = getChatMessageText(element);
     const originalHtml = originalHtmlByElement.get(element);
-    if (originalHtml !== undefined) {
+
+    if (currentSource !== null && currentSource !== renderedSource) {
+        element.textContent = currentSource;
+    } else if (originalHtml !== undefined) {
         element.innerHTML = originalHtml;
     } else {
-        element.textContent = element.dataset.carrotFormatSource || '';
+        element.textContent = currentSource ?? renderedSource;
     }
     element.removeAttribute(PROCESSED_ATTR);
     delete element.dataset.carrotFormatSource;
@@ -447,15 +467,16 @@ export function applyFormatRendering(
     if (element.getAttribute(PROCESSED_ATTR) === 'true') {
         const source = element.dataset.carrotFormatSource || '';
         const renderedPreset = element.dataset.carrotFormatPreset || 'ios';
-        const current = readMessageText(element);
+        const current = readSourceText(element);
         if (source === current && renderedPreset === preset) return false;
         restoreElement(element);
     }
 
     const user = isUserMessage(element);
-    const tokens = parseTokens(readMessageText(element), user);
+    const sourceText = readSourceText(element);
+    const tokens = parseTokens(sourceText, user);
     if (!tokens) return false;
-    renderTokens(element, tokens, user, documentRef, preset);
+    renderTokens(element, tokens, user, documentRef, preset, sourceText);
     return true;
 }
 
