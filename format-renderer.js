@@ -468,7 +468,8 @@ export function applyFormatRendering(
         const source = element.dataset.carrotFormatSource || '';
         const renderedPreset = element.dataset.carrotFormatPreset || 'ios';
         const current = readSourceText(element);
-        if (source === current && renderedPreset === preset) return false;
+        const hasRenderedContent = !!element.querySelector(`:scope > .${RENDERED_CLASS}`);
+        if (source === current && renderedPreset === preset && hasRenderedContent) return false;
         restoreElement(element);
     }
 
