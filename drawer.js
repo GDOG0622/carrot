@@ -5,6 +5,7 @@ import {
     importLegacySettings,
     saveSettings,
 } from './config.js';
+import { POPUP_RESULT, POPUP_TYPE, Popup } from '/scripts/popup.js';
 
 // --- 后台保活 ---
 const SILENT_AUDIO_SRC = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -13,6 +14,95 @@ let _keepAliveUnlockBound = false;
 let _notificationSoundsInited = false;
 const _soundAudioCache = new Map();
 const KEEP_ALIVE_AUDIO_SRC = new URL('./silence.m4a', import.meta.url).href;
+const GLOBAL_FONT_STYLE_ID = 'cip-global-font-style';
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeCssString(value) {
+    return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, ' ');
+}
+
+function isCssFontUrl(url) {
+    try {
+        return new URL(url, window.location.href).pathname.toLowerCase().endsWith('.css');
+    } catch (error) {
+        return /\.css(?:[?#].*)?$/i.test(url);
+    }
+}
+
+function getFontFormat(url) {
+    const lower = String(url || '').split(/[?#]/)[0].toLowerCase();
+    if (lower.endsWith('.woff2')) return 'woff2';
+    if (lower.endsWith('.woff')) return 'woff';
+    if (lower.endsWith('.ttf') || lower.endsWith('.tff')) return 'truetype';
+    if (lower.endsWith('.otf')) return 'opentype';
+    return '';
+}
+
+function buildGlobalFontCss(font) {
+    if (!font?.name || !font?.url) return '';
+    const name = escapeCssString(font.name.trim());
+    const url = escapeCssString(font.url.trim());
+    const format = getFontFormat(font.url);
+    const sourceCss = isCssFontUrl(font.url)
+        ? `@import url("${url}");\n`
+        : `@font-face {
+    font-family: "${name}";
+    src: url("${url}")${format ? ` format("${format}")` : ''};
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}\n`;
+
+    return `${sourceCss}
+:root {
+    --cip-global-font-family: "${name}";
+}
+
+html,
+body,
+body *:not(i):not(.fa):not(.fas):not(.far):not(.fal):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands),
+#sheld,
+#chat,
+#chat *,
+.mes,
+.mes *,
+.mes_text,
+.mes_text *,
+textarea,
+input,
+select,
+button,
+.menu_button,
+.text_pole {
+    font-family: var(--cip-global-font-family), sans-serif !important;
+}
+`;
+}
+
+function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
+    const s = getSettings();
+    const font = fontName ? s.globalFonts?.[fontName] : null;
+    let style = document.getElementById(GLOBAL_FONT_STYLE_ID);
+    if (!font) {
+        style?.remove();
+        return false;
+    }
+    if (!style) {
+        style = document.createElement('style');
+        style.id = GLOBAL_FONT_STYLE_ID;
+        document.head.appendChild(style);
+    }
+    style.textContent = buildGlobalFontCss(font);
+    return true;
+}
 
 function getOrCreateKeepAliveAudio() {
     if (_keepAliveAudio) return _keepAliveAudio;
@@ -187,6 +277,107 @@ function buildSoundOptions(selectEl) {
         opt.textContent = name;
         selectEl.appendChild(opt);
     });
+}
+
+function buildFontOptions(selectEl) {
+    if (!selectEl) return;
+    const fonts = getSettings().globalFonts || {};
+    selectEl.innerHTML = '<option value="">无</option>';
+    Object.keys(fonts).sort().forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        selectEl.appendChild(opt);
+    });
+}
+
+function parseNameUrlLines(text) {
+    const entries = [];
+    String(text || '').split('\n').forEach((line) => {
+        const parts = line.split(':');
+        if (parts.length < 2) return;
+        const name = parts[0].trim();
+        const url = parts.slice(1).join(':').trim();
+        if (name && url) entries.push({ name, url });
+    });
+    return entries;
+}
+
+function isAllowedResourceUrl(url) {
+    return /^https?:\/\//i.test(url) || url.startsWith('/') || url.startsWith('./') || url.startsWith('../');
+}
+
+async function showSoundAddPopup() {
+    const content = document.createElement('div');
+    content.className = 'cip-popup-form';
+    content.innerHTML = `
+        <label>
+            <span>名称</span>
+            <input type="text" class="text_pole" data-field="name" placeholder="提示音名称">
+        </label>
+        <label>
+            <span>链接</span>
+            <input type="text" class="text_pole" data-field="url" placeholder="音频直链 URL">
+        </label>
+    `;
+    const popup = new Popup(content, POPUP_TYPE.CONFIRM, '', {
+        okButton: '保存',
+        cancelButton: '取消',
+    });
+    const result = await popup.show();
+    if (result !== POPUP_RESULT.AFFIRMATIVE) return null;
+    return {
+        name: String(content.querySelector('[data-field="name"]')?.value || '').trim(),
+        url: String(content.querySelector('[data-field="url"]')?.value || '').trim(),
+    };
+}
+
+async function showSelectRemovePopup(title, selectEl) {
+    const content = document.createElement('div');
+    const label = document.createElement('div');
+    label.textContent = title;
+    label.style.marginBottom = '8px';
+    content.append(label, selectEl);
+    const popup = new Popup(content, POPUP_TYPE.CONFIRM, '', {
+        okButton: '移除',
+        cancelButton: '取消',
+    });
+    const result = await popup.show();
+    if (result !== POPUP_RESULT.AFFIRMATIVE) return '';
+    return selectEl.value || '';
+}
+
+async function showFontAddPopup() {
+    const content = document.createElement('div');
+    content.className = 'cip-popup-font-content cip-popup-form';
+    content.innerHTML = `
+        <h4>单独添加</h4>
+        <label>
+            <span>输入名字</span>
+            <input type="text" class="text_pole" data-field="name" placeholder="字体名称 / font-family">
+        </label>
+        <label>
+            <span>输入链接</span>
+            <input type="text" class="text_pole" data-field="url" placeholder="CSS 或 woff2/woff/ttf/otf 链接">
+        </label>
+        <h4>批量添加</h4>
+        <textarea class="text_pole" data-field="batch" rows="8" placeholder="每行一个：字体名字: 链接"></textarea>
+    `;
+    const popup = new Popup(content, POPUP_TYPE.CONFIRM, '', {
+        okButton: '保存',
+        cancelButton: '取消',
+        wide: true,
+    });
+    const result = await popup.show();
+    if (result !== POPUP_RESULT.AFFIRMATIVE) return null;
+
+    const singleName = String(content.querySelector('[data-field="name"]')?.value || '').trim();
+    const singleUrl = String(content.querySelector('[data-field="url"]')?.value || '').trim();
+    const batch = String(content.querySelector('[data-field="batch"]')?.value || '');
+    const entries = [];
+    if (singleName || singleUrl) entries.push({ name: singleName, url: singleUrl });
+    entries.push(...parseNameUrlLines(batch));
+    return entries;
 }
 
 async function playSound(name) {
@@ -379,6 +570,7 @@ export function injectExtensionDrawer({
                 <div class="cip-ext-nav">
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="main">主要</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="prompt">提示</button>
+                    <button class="cip-ext-nav-btn menu_button" data-cip-tab="font">字体</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="sync">同步</button>
                 </div>
                 <div id="cip-ext-pane-main" class="cip-ext-pane">
@@ -465,31 +657,27 @@ export function injectExtensionDrawer({
                         <input type="text" id="cip-ext-notif-fail-title" class="text_pole" placeholder="推送标题（默认：AI 回复中断）" value="${s.notifFailTitle || ''}">
                         <input type="text" id="cip-ext-notif-fail-body" class="text_pole" placeholder="推送正文（可留空）" value="${s.notifFailBody || ''}">
                     </div>
-                    <div id="cip-ext-sound-add-modal" class="cip-ext-modal hidden">
-                        <div class="cip-ext-modal-content">
-                            <h4>添加提示音</h4>
-                            <input type="text" id="cip-ext-sound-name" class="text_pole" placeholder="提示音名称">
-                            <input type="text" id="cip-ext-sound-url" class="text_pole" placeholder="音频直链 URL">
-                            <div class="cip-ext-modal-actions">
-                                <button id="cip-ext-sound-add-cancel" class="menu_button">取消</button>
-                                <button id="cip-ext-sound-save" class="menu_button">保存</button>
-                            </div>
+                </div>
+                <div id="cip-ext-pane-font" class="cip-ext-pane" style="display:none;">
+                    <div class="cip-ext-field">
+                        <small>添加/移除全局字体</small>
+                        <div class="cip-ext-font-manage">
+                            <button id="cip-ext-font-add-open" class="menu_button">添加</button>
+                            <button id="cip-ext-font-remove-open" class="menu_button">移除</button>
                         </div>
                     </div>
-                    <div id="cip-ext-sound-remove-modal" class="cip-ext-modal hidden">
-                        <div class="cip-ext-modal-content">
-                            <h4>移除提示音</h4>
-                            <select id="cip-ext-sound-remove-select" class="text_pole"></select>
-                            <div class="cip-ext-modal-actions">
-                                <button id="cip-ext-sound-remove-cancel" class="menu_button">取消</button>
-                                <button id="cip-ext-sound-remove-confirm" class="menu_button">移除</button>
-                            </div>
+                    <div class="cip-ext-field">
+                        <small>选择字体后点击应用，会覆盖酒馆全局字体</small>
+                        <div class="cip-ext-font-row">
+                            <select id="cip-ext-font-active" class="text_pole"></select>
+                            <button id="cip-ext-font-apply" class="menu_button">应用</button>
                         </div>
                     </div>
+                    <div id="cip-ext-font-status" class="cip-ext-status"></div>
                 </div>
                 <div id="cip-ext-pane-sync" class="cip-ext-pane" style="display:none;">
                     <div class="cip-ext-field">
-                        <small>导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、Unsplash、美化渲染等）</small>
+                        <small>导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、字体、Unsplash、美化渲染等）</small>
                     </div>
                     <div class="cip-ext-sync-btns">
                         <input type="file" id="cip-ext-import-file" accept=".json" style="display:none;">
@@ -564,6 +752,8 @@ export function injectExtensionDrawer({
     });
 
     bindPromptPane(wrapper, s);
+    bindFontPane(wrapper, s);
+    applyGlobalFont(s.activeGlobalFont);
 
     bindSyncPane();
     initNotificationSounds();
@@ -571,69 +761,101 @@ export function injectExtensionDrawer({
     if (s.notifKeepAlive) startKeepAlive();
 }
 
+function bindFontPane(wrapper, s) {
+    const fontAddOpenBtn = document.getElementById('cip-ext-font-add-open');
+    const fontRemoveOpenBtn = document.getElementById('cip-ext-font-remove-open');
+    const fontActiveSelect = document.getElementById('cip-ext-font-active');
+    const fontApplyBtn = document.getElementById('cip-ext-font-apply');
+    const fontStatus = document.getElementById('cip-ext-font-status');
+
+    const setFontStatus = (message) => {
+        if (fontStatus) fontStatus.textContent = message || '';
+    };
+    const refreshFontSelects = () => {
+        buildFontOptions(fontActiveSelect);
+        if (fontActiveSelect) fontActiveSelect.value = s.activeGlobalFont || '';
+    };
+    refreshFontSelects();
+
+    fontAddOpenBtn?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const entries = await showFontAddPopup();
+        if (!entries) return;
+        const validEntries = entries.filter(({ name, url }) => name && url && isAllowedResourceUrl(url));
+        if (!validEntries.length) {
+            setFontStatus('未解析到有效字体。请填写名称和 http(s)/站内链接');
+            return;
+        }
+        if (validEntries.length !== entries.length) {
+            setFontStatus(`⚠️ 已跳过 ${entries.length - validEntries.length} 条无效字体`);
+        }
+        if (!s.globalFonts) s.globalFonts = {};
+        validEntries.forEach(({ name, url }) => {
+            s.globalFonts[name] = { name, url };
+        });
+        saveSettings();
+        refreshFontSelects();
+        if (fontActiveSelect && !s.activeGlobalFont) fontActiveSelect.value = validEntries[0].name;
+        setFontStatus(`✅ 已保存 ${validEntries.length} 个字体`);
+    });
+
+    fontRemoveOpenBtn?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const select = document.createElement('select');
+        select.className = 'text_pole wide100p';
+        buildFontOptions(select);
+        const name = await showSelectRemovePopup('移除字体', select);
+        if (!name) {
+            setFontStatus('请选择要移除的字体');
+            return;
+        }
+        if (s.globalFonts) delete s.globalFonts[name];
+        if (s.activeGlobalFont === name) {
+            s.activeGlobalFont = '';
+            applyGlobalFont('');
+        }
+        saveSettings();
+        refreshFontSelects();
+        setFontStatus(`✅ 已移除字体：${name}`);
+    });
+
+    fontApplyBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const name = fontActiveSelect?.value || '';
+        s.activeGlobalFont = name;
+        saveSettings();
+        const applied = applyGlobalFont(name);
+        setFontStatus(applied ? `✅ 已应用字体：${name}` : '✅ 已恢复默认字体');
+    });
+
+    fontActiveSelect?.addEventListener('change', () => {
+        setFontStatus('');
+    });
+}
+
 function bindPromptPane(wrapper, s) {
     const soundAddOpenBtn = document.getElementById('cip-ext-sound-add-open');
     const soundRemoveOpenBtn = document.getElementById('cip-ext-sound-remove-open');
-    const soundAddModal = document.getElementById('cip-ext-sound-add-modal');
-    const soundRemoveModal = document.getElementById('cip-ext-sound-remove-modal');
-    const soundNameInput = document.getElementById('cip-ext-sound-name');
-    const soundUrlInput = document.getElementById('cip-ext-sound-url');
-    const soundSaveBtn = document.getElementById('cip-ext-sound-save');
-    const soundAddCancelBtn = document.getElementById('cip-ext-sound-add-cancel');
-    const soundRemoveSelect = document.getElementById('cip-ext-sound-remove-select');
-    const soundRemoveCancelBtn = document.getElementById('cip-ext-sound-remove-cancel');
-    const soundRemoveConfirmBtn = document.getElementById('cip-ext-sound-remove-confirm');
     const soundSuccessSelect = document.getElementById('cip-ext-sound-success');
     const soundFailSelect = document.getElementById('cip-ext-sound-fail');
     const soundStatus = document.getElementById('cip-ext-sound-status');
     const setSoundStatus = (message) => {
         if (soundStatus) soundStatus.textContent = message || '';
     };
-    const toggleSoundModal = (modal, visible) => {
-        modal?.classList.toggle('hidden', !visible);
-    };
 
     function refreshSoundSelects() {
         buildSoundOptions(soundSuccessSelect);
         buildSoundOptions(soundFailSelect);
-        buildSoundOptions(soundRemoveSelect);
         soundSuccessSelect.value = s.notifSuccess || '';
         soundFailSelect.value = s.notifFail || '';
     }
     refreshSoundSelects();
 
-    soundAddOpenBtn?.addEventListener('click', (e) => {
+    soundAddOpenBtn?.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (soundNameInput) soundNameInput.value = '';
-        if (soundUrlInput) soundUrlInput.value = '';
-        toggleSoundModal(soundAddModal, true);
-        soundNameInput?.focus();
-    });
-    soundRemoveOpenBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        refreshSoundSelects();
-        toggleSoundModal(soundRemoveModal, true);
-        soundRemoveSelect?.focus();
-    });
-    soundAddCancelBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleSoundModal(soundAddModal, false);
-    });
-    soundRemoveCancelBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleSoundModal(soundRemoveModal, false);
-    });
-    soundAddModal?.addEventListener('click', (e) => {
-        if (e.target === soundAddModal) toggleSoundModal(soundAddModal, false);
-    });
-    soundRemoveModal?.addEventListener('click', (e) => {
-        if (e.target === soundRemoveModal) toggleSoundModal(soundRemoveModal, false);
-    });
-
-    soundSaveBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const name = soundNameInput?.value?.trim();
-        const url = soundUrlInput?.value?.trim();
+        const payload = await showSoundAddPopup();
+        if (!payload) return;
+        const { name, url } = payload;
         if (!name || !url) {
             setSoundStatus('请输入提示音名称和音频直链');
             return;
@@ -641,17 +863,18 @@ function bindPromptPane(wrapper, s) {
         if (!s.notifSounds) s.notifSounds = {};
         s.notifSounds[name] = url;
         saveSettings();
-        if (soundNameInput) soundNameInput.value = '';
-        if (soundUrlInput) soundUrlInput.value = '';
         refreshSoundSelects();
         soundSuccessSelect.value = s.notifSuccess || '';
         soundFailSelect.value = s.notifFail || '';
-        toggleSoundModal(soundAddModal, false);
         setSoundStatus('✅ 提示音已保存');
     });
-    soundRemoveConfirmBtn?.addEventListener('click', (e) => {
+
+    soundRemoveOpenBtn?.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const name = soundRemoveSelect?.value;
+        const select = document.createElement('select');
+        select.className = 'text_pole wide100p';
+        buildSoundOptions(select);
+        const name = await showSelectRemovePopup('移除提示音', select);
         if (!name) {
             setSoundStatus('请选择要移除的提示音');
             return;
@@ -662,7 +885,6 @@ function bindPromptPane(wrapper, s) {
         if (s.notifFail === name) s.notifFail = '';
         saveSettings();
         refreshSoundSelects();
-        toggleSoundModal(soundRemoveModal, false);
         setSoundStatus(`✅ 已移除提示音：${name}`);
     });
 

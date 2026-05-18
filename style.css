@@ -1089,7 +1089,9 @@ emoji-picker {
 #cip-extension-container .cip-ext-nav,
 #cip-extension-container .cip-ext-sync-btns,
 #cip-extension-container .cip-ext-sound-manage,
-#cip-extension-container .cip-ext-sound-row {
+#cip-extension-container .cip-ext-sound-row,
+#cip-extension-container .cip-ext-font-manage,
+#cip-extension-container .cip-ext-font-row {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1100,7 +1102,9 @@ emoji-picker {
 #cip-extension-container .cip-ext-nav-btn,
 #cip-extension-container .cip-ext-sync-btns button,
 #cip-extension-container .cip-ext-sound-manage button,
-#cip-extension-container .cip-ext-sound-row button {
+#cip-extension-container .cip-ext-sound-row button,
+#cip-extension-container .cip-ext-font-manage button,
+#cip-extension-container .cip-ext-font-row button {
     width: auto;
     min-width: max-content;
     white-space: nowrap;
@@ -1153,55 +1157,49 @@ emoji-picker {
     line-height: 1;
 }
 
-#cip-extension-container .cip-ext-sound-row select {
+#cip-extension-container .cip-ext-sound-row select,
+#cip-extension-container .cip-ext-font-row select {
     flex: 1 1 auto;
 }
 
-#cip-extension-container .cip-ext-sound-manage button {
+#cip-extension-container .cip-ext-sound-manage button,
+#cip-extension-container .cip-ext-font-manage button {
     flex: 1 1 0;
 }
 
-#cip-extension-container .cip-ext-modal {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.24);
+.cip-popup-font-content {
+    text-align: left;
 }
 
-#cip-extension-container .cip-ext-modal.hidden {
-    display: none;
-}
-
-#cip-extension-container .cip-ext-modal-content {
+.cip-popup-form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    width: min(360px, calc(100vw - 32px));
-    padding: 14px;
-    border-radius: 8px;
-    background: var(--cip-panel-bg-color);
-    border: 1px solid var(--cip-border-color);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
-
-#cip-extension-container .cip-ext-modal-content h4 {
-    margin: 0;
-    color: var(--cip-text-color);
-}
-
-#cip-extension-container .cip-ext-modal-actions {
-    display: flex;
     gap: 8px;
-    justify-content: flex-end;
+    text-align: left;
 }
 
-#cip-extension-container .cip-ext-modal-actions button {
-    white-space: nowrap;
+.cip-popup-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.cip-popup-form textarea {
+    min-height: 140px;
+    resize: vertical;
+}
+
+.cip-popup-font-content h4 {
+    margin: 10px 0 4px;
+}
+
+.cip-popup-font-content h4:first-child {
+    margin-top: 0;
+}
+
+.cip-popup-font-content .notes {
+    margin: 0 0 8px;
+    opacity: 0.75;
 }
 
 #cip-extension-container .cip-ext-divider {
