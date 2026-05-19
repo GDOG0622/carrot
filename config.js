@@ -34,6 +34,8 @@ const DEFAULT_SETTINGS = {
     activeGlobalFont: '',
     globalMessageFontSize: '',
     globalMessageFontWeight: '',
+    globalMessageLineHeight: '',
+    globalMessageParagraphSpacing: '',
     bubblePreset: 'ios',
     bubblePresets: {},
     syncFilename: '',
@@ -68,6 +70,8 @@ const legacyDefinitions = {
     cip_active_global_font_v1: ['activeGlobalFont', parseString, stringifyString],
     cip_global_message_font_size_v1: ['globalMessageFontSize', parseString, stringifyString],
     cip_global_message_font_weight_v1: ['globalMessageFontWeight', parseString, stringifyString],
+    cip_global_message_line_height_v1: ['globalMessageLineHeight', parseString, stringifyString],
+    cip_global_message_paragraph_spacing_v1: ['globalMessageParagraphSpacing', parseString, stringifyString],
     cip_bubble_preset_v1: ['bubblePreset', parseString, stringifyString],
     cip_bubble_presets_v1: ['bubblePresets', parseJson, stringifyJson],
 };

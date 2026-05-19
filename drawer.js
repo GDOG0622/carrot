@@ -58,11 +58,33 @@ function normalizeMessageFontWeight(value) {
     return String(Math.min(1000, Math.max(100, parsed)));
 }
 
-function buildGlobalFontCss(font, { messageFontSize = '', messageFontWeight = '' } = {}) {
+function normalizeMessageLineHeight(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '';
+    return String(Math.min(4, Math.max(0.8, parsed)));
+}
+
+function normalizeMessageParagraphSpacing(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 0) return '';
+    return String(Math.min(96, Math.max(0, parsed)));
+}
+
+function buildGlobalFontCss(
+    font,
+    {
+        messageFontSize = '',
+        messageFontWeight = '',
+        messageLineHeight = '',
+        messageParagraphSpacing = '',
+    } = {},
+) {
     const hasFont = !!(font?.name && font?.url);
     const size = normalizeMessageFontSize(messageFontSize);
     const weight = normalizeMessageFontWeight(messageFontWeight);
-    if (!hasFont && !size && !weight) return '';
+    const lineHeight = normalizeMessageLineHeight(messageLineHeight);
+    const paragraphSpacing = normalizeMessageParagraphSpacing(messageParagraphSpacing);
+    if (!hasFont && !size && !weight && !lineHeight && !paragraphSpacing) return '';
 
     const name = hasFont ? escapeCssString(font.name.trim()) : '';
     const url = hasFont ? escapeCssString(font.url.trim()) : '';
@@ -82,41 +104,41 @@ function buildGlobalFontCss(font, { messageFontSize = '', messageFontWeight = ''
         ? `    --cip-global-font-family: "${name}";\n`
         : '';
     const textFontCss = hasFont
-        ? `    font-family: var(--cip-global-font-family), sans-serif !important;\n`
+        ? `    font-family: var(--cip-global-font-family), system-ui, sans-serif !important;\n`
         : '';
     const messageFontCss = [
         hasFont ? '    font-family: var(--cip-global-font-family), sans-serif !important;' : '',
         size ? `    font-size: ${size}px !important;` : '',
         weight ? `    font-weight: ${weight} !important;` : '',
+        lineHeight ? `    line-height: ${lineHeight} !important;` : '',
     ].filter(Boolean).join('\n');
+    const paragraphCss = paragraphSpacing
+        ? `.mes_text p {
+    margin-top: 0 !important;
+    margin-bottom: ${paragraphSpacing}px !important;
+}
+`
+        : '';
 
     return `${sourceCss}
 :root {
 ${fontVarCss.trimEnd()}
 }
 
-html,
-body,
-#sheld,
-#chat,
-.mes,
-.mes_text,
-textarea,
-input,
-select,
-button,
-.menu_button,
-.text_pole {
+html body,
+html body :not([class*="fa-"]):not(.fa):not(.fas):not(.far):not(.fal):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands):not(.svg_icon):not(svg):not(path):not(use) {
 ${textFontCss.trimEnd()}
 }
 
 .mes_text,
+.mes_text *,
 .mes_text p,
 .mes_text span:not([class*="fa-"]):not(.svg_icon),
 .mes_text div:not([class*="fa-"]):not(.svg_icon) {
 ${messageFontCss}
 }
 
+${paragraphCss}
 .fa,
 .fas,
 .fa-solid {
@@ -147,6 +169,8 @@ function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
     const css = buildGlobalFontCss(font, {
         messageFontSize: s.globalMessageFontSize,
         messageFontWeight: s.globalMessageFontWeight,
+        messageLineHeight: s.globalMessageLineHeight,
+        messageParagraphSpacing: s.globalMessageParagraphSpacing,
     });
     let style = document.getElementById(GLOBAL_FONT_STYLE_ID);
     if (!css) {
@@ -156,8 +180,8 @@ function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
     if (!style) {
         style = document.createElement('style');
         style.id = GLOBAL_FONT_STYLE_ID;
-        document.head.appendChild(style);
     }
+    document.head.appendChild(style);
     style.textContent = css;
     return true;
 }
@@ -740,6 +764,16 @@ export function injectExtensionDrawer({
                                 <input type="number" id="cip-ext-message-font-weight" class="text_pole" min="100" max="1000" step="50" placeholder="400" value="${s.globalMessageFontWeight || ''}">
                             </label>
                         </div>
+                        <div class="cip-ext-font-message-row">
+                            <label>
+                                <span>message 行间距</span>
+                                <input type="number" id="cip-ext-message-line-height" class="text_pole" min="0.8" max="4" step="0.05" placeholder="1.5" value="${s.globalMessageLineHeight || ''}">
+                            </label>
+                            <label>
+                                <span>message 段间距</span>
+                                <input type="number" id="cip-ext-message-paragraph-spacing" class="text_pole" min="0" max="96" step="1" placeholder="px" value="${s.globalMessageParagraphSpacing || ''}">
+                            </label>
+                        </div>
                     </div>
                     <div id="cip-ext-font-status" class="cip-ext-status"></div>
                 </div>
@@ -836,6 +870,8 @@ function bindFontPane(wrapper, s) {
     const fontApplyBtn = document.getElementById('cip-ext-font-apply');
     const messageFontSizeInput = document.getElementById('cip-ext-message-font-size');
     const messageFontWeightInput = document.getElementById('cip-ext-message-font-weight');
+    const messageLineHeightInput = document.getElementById('cip-ext-message-line-height');
+    const messageParagraphSpacingInput = document.getElementById('cip-ext-message-paragraph-spacing');
     const fontStatus = document.getElementById('cip-ext-font-status');
 
     const setFontStatus = (message) => {
@@ -895,8 +931,12 @@ function bindFontPane(wrapper, s) {
         s.activeGlobalFont = name;
         s.globalMessageFontSize = normalizeMessageFontSize(messageFontSizeInput?.value || '');
         s.globalMessageFontWeight = normalizeMessageFontWeight(messageFontWeightInput?.value || '');
+        s.globalMessageLineHeight = normalizeMessageLineHeight(messageLineHeightInput?.value || '');
+        s.globalMessageParagraphSpacing = normalizeMessageParagraphSpacing(messageParagraphSpacingInput?.value || '');
         if (messageFontSizeInput) messageFontSizeInput.value = s.globalMessageFontSize;
         if (messageFontWeightInput) messageFontWeightInput.value = s.globalMessageFontWeight;
+        if (messageLineHeightInput) messageLineHeightInput.value = s.globalMessageLineHeight;
+        if (messageParagraphSpacingInput) messageParagraphSpacingInput.value = s.globalMessageParagraphSpacing;
         saveSettings();
         const applied = applyGlobalFont(name);
         setFontStatus(applied ? `✅ 已应用字体设置${name ? `：${name}` : ''}` : '✅ 已恢复默认字体设置');
@@ -907,6 +947,8 @@ function bindFontPane(wrapper, s) {
     });
     messageFontSizeInput?.addEventListener('input', () => setFontStatus(''));
     messageFontWeightInput?.addEventListener('input', () => setFontStatus(''));
+    messageLineHeightInput?.addEventListener('input', () => setFontStatus(''));
+    messageParagraphSpacingInput?.addEventListener('input', () => setFontStatus(''));
 }
 
 function bindPromptPane(wrapper, s) {
