@@ -32,6 +32,8 @@ const DEFAULT_SETTINGS = {
     notifFailBody: '',
     globalFonts: {},
     activeGlobalFont: '',
+    globalMessageFontSize: '',
+    globalMessageFontWeight: '',
     bubblePreset: 'ios',
     bubblePresets: {},
     syncFilename: '',
@@ -64,6 +66,8 @@ const legacyDefinitions = {
     cip_notif_fail_body_v1: ['notifFailBody', parseString, stringifyString],
     cip_global_fonts_v1: ['globalFonts', parseJson, stringifyJson],
     cip_active_global_font_v1: ['activeGlobalFont', parseString, stringifyString],
+    cip_global_message_font_size_v1: ['globalMessageFontSize', parseString, stringifyString],
+    cip_global_message_font_weight_v1: ['globalMessageFontWeight', parseString, stringifyString],
     cip_bubble_preset_v1: ['bubblePreset', parseString, stringifyString],
     cip_bubble_presets_v1: ['bubblePresets', parseJson, stringifyJson],
 };

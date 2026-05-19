@@ -1091,7 +1091,8 @@ emoji-picker {
 #cip-extension-container .cip-ext-sound-manage,
 #cip-extension-container .cip-ext-sound-row,
 #cip-extension-container .cip-ext-font-manage,
-#cip-extension-container .cip-ext-font-row {
+#cip-extension-container .cip-ext-font-row,
+#cip-extension-container .cip-ext-font-message-row {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1160,6 +1161,19 @@ emoji-picker {
 #cip-extension-container .cip-ext-sound-row select,
 #cip-extension-container .cip-ext-font-row select {
     flex: 1 1 auto;
+}
+
+#cip-extension-container .cip-ext-font-message-row label {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    font-size: 12px;
+}
+
+#cip-extension-container .cip-ext-font-message-row input {
+    width: 100%;
 }
 
 #cip-extension-container .cip-ext-sound-manage button,

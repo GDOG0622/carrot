@@ -46,12 +46,30 @@ function getFontFormat(url) {
     return '';
 }
 
-function buildGlobalFontCss(font) {
-    if (!font?.name || !font?.url) return '';
-    const name = escapeCssString(font.name.trim());
-    const url = escapeCssString(font.url.trim());
-    const format = getFontFormat(font.url);
-    const sourceCss = isCssFontUrl(font.url)
+function normalizeMessageFontSize(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '';
+    return String(Math.min(96, Math.max(8, parsed)));
+}
+
+function normalizeMessageFontWeight(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return '';
+    return String(Math.min(1000, Math.max(100, parsed)));
+}
+
+function buildGlobalFontCss(font, { messageFontSize = '', messageFontWeight = '' } = {}) {
+    const hasFont = !!(font?.name && font?.url);
+    const size = normalizeMessageFontSize(messageFontSize);
+    const weight = normalizeMessageFontWeight(messageFontWeight);
+    if (!hasFont && !size && !weight) return '';
+
+    const name = hasFont ? escapeCssString(font.name.trim()) : '';
+    const url = hasFont ? escapeCssString(font.url.trim()) : '';
+    const format = hasFont ? getFontFormat(font.url) : '';
+    const sourceCss = !hasFont
+        ? ''
+        : isCssFontUrl(font.url)
         ? `@import url("${url}");\n`
         : `@font-face {
     font-family: "${name}";
@@ -60,29 +78,65 @@ function buildGlobalFontCss(font) {
     font-style: normal;
     font-display: swap;
 }\n`;
+    const fontVarCss = hasFont
+        ? `    --cip-global-font-family: "${name}";\n`
+        : '';
+    const textFontCss = hasFont
+        ? `    font-family: var(--cip-global-font-family), sans-serif !important;\n`
+        : '';
+    const messageFontCss = [
+        hasFont ? '    font-family: var(--cip-global-font-family), sans-serif !important;' : '',
+        size ? `    font-size: ${size}px !important;` : '',
+        weight ? `    font-weight: ${weight} !important;` : '',
+    ].filter(Boolean).join('\n');
 
     return `${sourceCss}
 :root {
-    --cip-global-font-family: "${name}";
+${fontVarCss.trimEnd()}
 }
 
 html,
 body,
-body *:not(i):not(.fa):not(.fas):not(.far):not(.fal):not(.fab):not(.fa-solid):not(.fa-regular):not(.fa-brands),
 #sheld,
 #chat,
-#chat *,
 .mes,
-.mes *,
 .mes_text,
-.mes_text *,
 textarea,
 input,
 select,
 button,
 .menu_button,
 .text_pole {
-    font-family: var(--cip-global-font-family), sans-serif !important;
+${textFontCss.trimEnd()}
+}
+
+.mes_text,
+.mes_text p,
+.mes_text span:not([class*="fa-"]):not(.svg_icon),
+.mes_text div:not([class*="fa-"]):not(.svg_icon) {
+${messageFontCss}
+}
+
+.fa,
+.fas,
+.fa-solid {
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free" !important;
+    font-weight: 900 !important;
+}
+
+.far,
+.fa-regular,
+.fal,
+.fa-light,
+.fa-thin {
+    font-family: "Font Awesome 6 Free", "Font Awesome 5 Free" !important;
+    font-weight: 400 !important;
+}
+
+.fab,
+.fa-brands {
+    font-family: "Font Awesome 6 Brands", "Font Awesome 5 Brands" !important;
+    font-weight: 400 !important;
 }
 `;
 }
@@ -90,8 +144,12 @@ button,
 function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
     const s = getSettings();
     const font = fontName ? s.globalFonts?.[fontName] : null;
+    const css = buildGlobalFontCss(font, {
+        messageFontSize: s.globalMessageFontSize,
+        messageFontWeight: s.globalMessageFontWeight,
+    });
     let style = document.getElementById(GLOBAL_FONT_STYLE_ID);
-    if (!font) {
+    if (!css) {
         style?.remove();
         return false;
     }
@@ -100,7 +158,7 @@ function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
         style.id = GLOBAL_FONT_STYLE_ID;
         document.head.appendChild(style);
     }
-    style.textContent = buildGlobalFontCss(font);
+    style.textContent = css;
     return true;
 }
 
@@ -672,6 +730,16 @@ export function injectExtensionDrawer({
                             <select id="cip-ext-font-active" class="text_pole"></select>
                             <button id="cip-ext-font-apply" class="menu_button">应用</button>
                         </div>
+                        <div class="cip-ext-font-message-row">
+                            <label>
+                                <span>message 字体大小</span>
+                                <input type="number" id="cip-ext-message-font-size" class="text_pole" min="8" max="96" step="1" placeholder="px" value="${s.globalMessageFontSize || ''}">
+                            </label>
+                            <label>
+                                <span>message 字体粗细</span>
+                                <input type="number" id="cip-ext-message-font-weight" class="text_pole" min="100" max="1000" step="50" placeholder="400" value="${s.globalMessageFontWeight || ''}">
+                            </label>
+                        </div>
                     </div>
                     <div id="cip-ext-font-status" class="cip-ext-status"></div>
                 </div>
@@ -766,6 +834,8 @@ function bindFontPane(wrapper, s) {
     const fontRemoveOpenBtn = document.getElementById('cip-ext-font-remove-open');
     const fontActiveSelect = document.getElementById('cip-ext-font-active');
     const fontApplyBtn = document.getElementById('cip-ext-font-apply');
+    const messageFontSizeInput = document.getElementById('cip-ext-message-font-size');
+    const messageFontWeightInput = document.getElementById('cip-ext-message-font-weight');
     const fontStatus = document.getElementById('cip-ext-font-status');
 
     const setFontStatus = (message) => {
@@ -823,14 +893,20 @@ function bindFontPane(wrapper, s) {
         e.stopPropagation();
         const name = fontActiveSelect?.value || '';
         s.activeGlobalFont = name;
+        s.globalMessageFontSize = normalizeMessageFontSize(messageFontSizeInput?.value || '');
+        s.globalMessageFontWeight = normalizeMessageFontWeight(messageFontWeightInput?.value || '');
+        if (messageFontSizeInput) messageFontSizeInput.value = s.globalMessageFontSize;
+        if (messageFontWeightInput) messageFontWeightInput.value = s.globalMessageFontWeight;
         saveSettings();
         const applied = applyGlobalFont(name);
-        setFontStatus(applied ? `✅ 已应用字体：${name}` : '✅ 已恢复默认字体');
+        setFontStatus(applied ? `✅ 已应用字体设置${name ? `：${name}` : ''}` : '✅ 已恢复默认字体设置');
     });
 
     fontActiveSelect?.addEventListener('change', () => {
         setFontStatus('');
     });
+    messageFontSizeInput?.addEventListener('input', () => setFontStatus(''));
+    messageFontWeightInput?.addEventListener('input', () => setFontStatus(''));
 }
 
 function bindPromptPane(wrapper, s) {
