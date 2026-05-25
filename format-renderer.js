@@ -2,6 +2,60 @@ const PROCESSED_ATTR = 'data-carrot-format-rendered';
 const RENDERING_ATTR = 'data-carrot-format-rendering';
 const RENDERED_CLASS = 'carrot-format-rendered';
 const originalHtmlByElement = new WeakMap();
+const SAFE_HTML_TAGS = new Set([
+    'div',
+    'p',
+    'span',
+    'br',
+    'b',
+    'strong',
+    'i',
+    'em',
+    'u',
+    'small',
+    'sup',
+    'sub',
+    'ul',
+    'ol',
+    'li',
+]);
+const DROP_HTML_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'svg']);
+const SAFE_STYLE_PROPS = new Set([
+    'background',
+    'background-color',
+    'border',
+    'border-color',
+    'border-radius',
+    'border-style',
+    'border-width',
+    'box-shadow',
+    'color',
+    'display',
+    'font',
+    'font-family',
+    'font-size',
+    'font-style',
+    'font-weight',
+    'letter-spacing',
+    'line-height',
+    'margin',
+    'margin-bottom',
+    'margin-left',
+    'margin-right',
+    'margin-top',
+    'max-width',
+    'min-width',
+    'opacity',
+    'padding',
+    'padding-bottom',
+    'padding-left',
+    'padding-right',
+    'padding-top',
+    'text-align',
+    'text-decoration',
+    'white-space',
+    'width',
+]);
 
 function getMessageId(element) {
     const mes = element?.closest?.('.mes');
@@ -57,6 +111,66 @@ function normalizeText(text) {
     return String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
+function looksLikeHtmlFragment(text) {
+    const value = String(text || '').trim();
+    return /^<([a-z][\w:-]*)(?:\s[^>]*)?>[\s\S]*<\/\1>$|^<br\s*\/?>$/i.test(value);
+}
+
+function sanitizeStyle(styleText) {
+    return String(styleText || '')
+        .split(';')
+        .map((rule) => rule.trim())
+        .filter(Boolean)
+        .map((rule) => {
+            const separatorIndex = rule.indexOf(':');
+            if (separatorIndex <= 0) return '';
+            const property = rule.slice(0, separatorIndex).trim().toLowerCase();
+            const value = rule.slice(separatorIndex + 1).trim();
+            if (!SAFE_STYLE_PROPS.has(property)) return '';
+            if (/expression\s*\(|javascript\s*:|url\s*\(/i.test(value)) return '';
+            return `${property}: ${value}`;
+        })
+        .filter(Boolean)
+        .join('; ');
+}
+
+function sanitizeHtmlNode(documentRef, node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+        return documentRef.createTextNode(node.textContent || '');
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+        return documentRef.createDocumentFragment();
+    }
+
+    const tagName = node.tagName.toLowerCase();
+    if (DROP_HTML_TAGS.has(tagName)) {
+        return documentRef.createDocumentFragment();
+    }
+
+    const children = documentRef.createDocumentFragment();
+    node.childNodes.forEach((child) => children.appendChild(sanitizeHtmlNode(documentRef, child)));
+
+    if (!SAFE_HTML_TAGS.has(tagName)) {
+        return children;
+    }
+
+    const element = documentRef.createElement(tagName);
+    if (node.hasAttribute('style')) {
+        const style = sanitizeStyle(node.getAttribute('style'));
+        if (style) element.setAttribute('style', style);
+    }
+    element.appendChild(children);
+    return element;
+}
+
+function sanitizeHtmlFragment(documentRef, html) {
+    const template = documentRef.createElement('template');
+    template.innerHTML = html;
+    const fragment = documentRef.createDocumentFragment();
+    template.content.childNodes.forEach((node) => fragment.appendChild(sanitizeHtmlNode(documentRef, node)));
+    return fragment;
+}
+
 function readMessageText(element) {
     return normalizeText(element?.innerText || element?.textContent || '');
 }
@@ -65,11 +179,12 @@ function readSourceText(element) {
     return getChatMessageText(element) ?? readMessageText(element);
 }
 
-function createBubbleShell(documentRef, side, kind = 'text') {
+function createBubbleShell(documentRef, side, kind = 'text', { hasTail = true } = {}) {
     const line = documentRef.createElement('div');
     line.className = `carrot-ios-line carrot-ios-${side}`;
     const wrap = documentRef.createElement('div');
     wrap.className = `carrot-ios-wrap carrot-ios-${kind}`;
+    if (!hasTail) line.classList.add('carrot-ios-no-tail');
     const tail = documentRef.createElement('span');
     tail.className = 'carrot-ios-tail';
     wrap.appendChild(tail);
@@ -77,11 +192,11 @@ function createBubbleShell(documentRef, side, kind = 'text') {
     return { line, wrap };
 }
 
-function createTextBubble(documentRef, token, side, preset) {
+function createTextBubble(documentRef, token, side, preset, options = {}) {
     if (preset === 'avatarTransparent') {
         return createAvatarTransparentBubble(documentRef, token, side);
     }
-    const { line, wrap } = createBubbleShell(documentRef, side, 'text');
+    const { line, wrap } = createBubbleShell(documentRef, side, 'text', options);
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble';
     bubble.textContent = token.body;
@@ -133,11 +248,11 @@ function createAvatarTransparentDot(documentRef) {
     return dot;
 }
 
-function createVoiceBubble(documentRef, token, side, preset) {
+function createVoiceBubble(documentRef, token, side, preset, options = {}) {
     if (preset === 'avatarTransparent') {
         return createAvatarTransparentVoice(documentRef, token, side);
     }
-    const { line, wrap } = createBubbleShell(documentRef, side, 'voice');
+    const { line, wrap } = createBubbleShell(documentRef, side, 'voice', options);
     const details = documentRef.createElement('details');
     details.className = 'carrot-ios-bubble carrot-ios-voice-details';
 
@@ -219,11 +334,11 @@ function createAvatarTransparentVoice(documentRef, token, side) {
     return line;
 }
 
-function createDimensionBubble(documentRef, token, side, preset) {
+function createDimensionBubble(documentRef, token, side, preset, options = {}) {
     if (preset === 'avatarTransparent') {
         return createAvatarTransparentDimension(documentRef, token, side);
     }
-    const { line, wrap } = createBubbleShell(documentRef, side, 'dimension');
+    const { line, wrap } = createBubbleShell(documentRef, side, 'dimension', options);
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble carrot-ios-dimension-card';
 
@@ -303,6 +418,16 @@ function createTextLine(documentRef, token) {
     return line;
 }
 
+function createHtmlBlock(documentRef, token, side) {
+    const line = documentRef.createElement('div');
+    line.className = `carrot-render-html-block carrot-render-html-${side}`;
+    const content = documentRef.createElement('div');
+    content.className = 'carrot-render-html-content';
+    content.appendChild(sanitizeHtmlFragment(documentRef, token.body));
+    line.appendChild(content);
+    return line;
+}
+
 function parseVoiceBlock(lines, startIndex) {
     const firstLine = lines[startIndex];
     const firstMatch = firstLine.match(/^\s*=([^|=]+)\|([\s\S]*)$/);
@@ -347,9 +472,16 @@ function parseLine(line, isUser) {
         ? line.match(/^\s*“([\s\S]*)”\s*$/)
         : line.match(/^\s*"([\s\S]*)"\s*$/);
     if (quote) {
+        const body = quote[1];
+        if (looksLikeHtmlFragment(body)) {
+            return {
+                type: 'htmlBlock',
+                body,
+            };
+        }
         return {
             type: 'textBubble',
-            body: quote[1],
+            body,
         };
     }
 
@@ -379,6 +511,13 @@ function parseLine(line, isUser) {
         };
     }
 
+    if (looksLikeHtmlFragment(line)) {
+        return {
+            type: 'htmlBlock',
+            body: line.trim(),
+        };
+    }
+
     return {
         type: 'text',
         body: line,
@@ -391,6 +530,8 @@ function parseTokens(text, isUser) {
     let changed = false;
 
     for (let i = 0; i < lines.length; i += 1) {
+        if (/^\s*$/.test(lines[i])) continue;
+
         const voice = parseVoiceBlock(lines, i);
         if (voice) {
             tokens.push(voice.token);
@@ -407,6 +548,20 @@ function parseTokens(text, isUser) {
     return changed ? tokens : null;
 }
 
+function isTailBubbleToken(token) {
+    return token.type === 'textBubble' || token.type === 'voiceBubble' || token.type === 'dimensionBubble';
+}
+
+function shouldRenderTail(tokens, index, preset) {
+    if (preset === 'avatarTransparent') return true;
+    if (!isTailBubbleToken(tokens[index])) return true;
+    for (let i = index + 1; i < tokens.length; i += 1) {
+        if (isTailBubbleToken(tokens[i])) return false;
+        if (tokens[i].type !== 'text' || String(tokens[i].body || '').trim()) return true;
+    }
+    return true;
+}
+
 function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) {
     const side = isUser ? 'user' : 'char';
     originalHtmlByElement.set(element, element.innerHTML);
@@ -419,13 +574,16 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
 
     const rendered = documentRef.createElement('div');
     rendered.className = RENDERED_CLASS;
-    tokens.forEach((token) => {
+    tokens.forEach((token, index) => {
+        const bubbleOptions = { hasTail: shouldRenderTail(tokens, index, preset) };
         if (token.type === 'textBubble') {
-            rendered.appendChild(createTextBubble(documentRef, token, side, preset));
+            rendered.appendChild(createTextBubble(documentRef, token, side, preset, bubbleOptions));
         } else if (token.type === 'voiceBubble') {
-            rendered.appendChild(createVoiceBubble(documentRef, token, side, preset));
+            rendered.appendChild(createVoiceBubble(documentRef, token, side, preset, bubbleOptions));
         } else if (token.type === 'dimensionBubble') {
-            rendered.appendChild(createDimensionBubble(documentRef, token, side, preset));
+            rendered.appendChild(createDimensionBubble(documentRef, token, side, preset, bubbleOptions));
+        } else if (token.type === 'htmlBlock') {
+            rendered.appendChild(createHtmlBlock(documentRef, token, side));
         } else if (token.type === 'timestamp') {
             rendered.appendChild(createTimestampLine(documentRef, token));
         } else if (token.type === 'system') {
