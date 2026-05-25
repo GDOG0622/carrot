@@ -1254,6 +1254,28 @@ emoji-picker {
     white-space: pre-wrap;
 }
 
+.carrot-render-html-block {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+}
+
+.carrot-render-html-user {
+    text-align: right;
+}
+
+.carrot-render-html-content {
+    display: inline-block;
+    max-width: 78%;
+    text-align: left;
+    white-space: normal;
+    word-break: break-word;
+}
+
+.carrot-render-html-content p {
+    margin: 0;
+}
+
 .carrot-render-timestamp {
     margin: 12px 0;
     color: #8e8e93;
@@ -1343,6 +1365,10 @@ emoji-picker {
     background: #6dcc6e;
     -webkit-mask: radial-gradient(circle at 19px 6px, transparent 9px, black 9px);
     mask: radial-gradient(circle at 19px 6px, transparent 9px, black 9px);
+}
+
+.carrot-ios-no-tail .carrot-ios-tail {
+    display: none;
 }
 
 .carrot-ios-bubble {
