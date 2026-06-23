@@ -459,9 +459,18 @@ const normalizeJinaMarkdown = (markdown, sourceUrl, rawText) => {
     };
 };
 
-const tryJinaReader = async (targetUrl, rawText, jinaToken = '') => {
+// 解析 jinaToken：支持逗号/空白分隔多 key
+const parseJinaTokens = (raw) => String(raw || '')
+    .split(/[,\s]+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+// HTTP 状态码判断是否为额度/限流/鉴权问题（应该切下一个 key 重试）
+const isJinaQuotaError = (status) => status === 401 || status === 402 || status === 429 || status === 403;
+
+const tryJinaOnce = async (targetUrl, token, timeoutMs = 12000) => {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 12000);
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
         const r = await fetch(`https://r.jina.ai/${targetUrl}`, {
             method: 'GET',
@@ -469,15 +478,38 @@ const tryJinaReader = async (targetUrl, rawText, jinaToken = '') => {
             signal: ctrl.signal,
             headers: {
                 'Accept': 'text/markdown,text/plain;q=0.9,*/*;q=0.8',
-                ...(jinaToken ? { Authorization: `Bearer ${jinaToken}` } : {}),
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
         });
-        if (!r.ok) return null;
-        return normalizeJinaMarkdown(await r.text(), targetUrl, rawText);
+        return { ok: r.ok, status: r.status, text: r.ok ? await r.text() : '' };
     } catch (e) {
-        console.warn('[carrot link-preview jina failed]', e?.message || e);
-        return null;
+        return { ok: false, status: 0, error: e?.message || String(e) };
     } finally { clearTimeout(t); }
+};
+
+const tryJinaReader = async (targetUrl, rawText, jinaToken = '') => {
+    // 多 key 轮换：依次尝试，遇到额度/限流/鉴权问题就切下一个
+    const tokens = parseJinaTokens(jinaToken);
+    const sequence = tokens.length ? tokens : ['']; // 无 token 也允许试一次匿名
+    let lastFail = '';
+    for (let i = 0; i < sequence.length; i++) {
+        const token = sequence[i];
+        const tag = token ? `key #${i + 1}` : '匿名';
+        const result = await tryJinaOnce(targetUrl, token);
+        if (result.ok) {
+            if (i > 0) console.log(`[carrot link-preview jina] 切到 ${tag} 成功`);
+            return normalizeJinaMarkdown(result.text, targetUrl, rawText);
+        }
+        lastFail = result.error || `HTTP ${result.status}`;
+        // 网络错误或非额度错误：直接放弃，不消耗下一个 key
+        if (!result.status || !isJinaQuotaError(result.status)) {
+            console.warn(`[carrot link-preview jina] ${tag} 失败（${lastFail}），不切下一个`);
+            return null;
+        }
+        console.warn(`[carrot link-preview jina] ${tag} 额度/限流（${lastFail}），尝试下一个 key`);
+    }
+    console.warn(`[carrot link-preview jina] 所有 key 耗尽，最后错误：${lastFail}`);
+    return null;
 };
 
 const isUsefulPreview = (preview, hostname) => {
@@ -586,10 +618,7 @@ async function handler(req, res) {
         // Step 3b: 微博特化。微博常跳 visitor，必须在通用 OG 前处理。
         if (isWeiboRequest) {
             const weiboComments = await fetchWeiboComments(extractWeiboId(u.toString()) || extractWeiboId(finalUrl));
-            const jinaWeibo = await tryJinaReader(u.toString(), rawText, jinaToken);
-            if (isUsefulPreview(jinaWeibo, host)) {
-                return await sendPreview({ ...jinaWeibo, siteName: '微博', comments: weiboComments }, u.toString());
-            }
+            // 先尝试 OG（白嫖），只有解析不出且非 visitor block 时才动 Jina 额度
             if (html && !/Sina Visitor System|visitor\.passport\.weibo\.cn/i.test(html + finalUrl)) {
                 const og = parseOgFromHtml(html, finalUrl);
                 if (og.description || og.image || (og.title && !isGenericPreviewText(og.title, host))) {
@@ -603,6 +632,11 @@ async function handler(req, res) {
                         source: 'weibo-og',
                     }, finalUrl);
                 }
+            }
+            // OG 没料才用 Jina 兜底
+            const jinaWeibo = await tryJinaReader(u.toString(), rawText, jinaToken);
+            if (isUsefulPreview(jinaWeibo, host)) {
+                return await sendPreview({ ...jinaWeibo, siteName: '微博', comments: weiboComments }, u.toString());
             }
             const sharedWeibo = cleanSharedText(rawText);
             return await sendPreview({

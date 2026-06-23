@@ -436,7 +436,7 @@
             music: '“[{content}.mp3]”',
         },
         wallet: '[{platform}|{amount}|{message}]',
-        stickers: '“[{desc}]”',
+        stickers: '[{desc}]',
         recall: '--',
         // v8.0: BUNNY 格式（原 sub-type，现作为 footer 按钮触发）
         bunny: '+{content}+',

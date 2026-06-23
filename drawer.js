@@ -812,8 +812,21 @@ export function injectExtensionDrawer({
                         <summary><b>链接解析</b></summary>
                         <div id="cip-api-link-status" style="margin:.5em 0;color:#888;font-size:.9em;"></div>
                         <div class="cip-ext-field">
-                            <small>Jina Reader Key（可选，小红书/反爬兜底）</small>
-                            <input type="password" id="cip-api-jina-token" class="text_pole" placeholder="jina_...">
+                            <small>
+                                Jina Reader Key（可选，反爬时兜底）
+                                <a href="#" id="cip-api-jina-howto" style="margin-left:.5em;font-size:.85em;">怎么拿 key？</a>
+                            </small>
+                            <input type="password" id="cip-api-jina-token" class="text_pole" placeholder="jina_xxx 多个 key 用英文逗号分隔，前一个用完自动切下一个">
+                            <div style="font-size:.78em;color:#888;margin-top:.3em;line-height:1.5;">
+                                只在网页正常抓取失败时调用；多 key 时按顺序轮换。
+                            </div>
+                            <div id="cip-api-jina-howto-panel" style="display:none;background:rgba(0,0,0,.05);border-radius:6px;padding:8px 10px;margin-top:.4em;font-size:.82em;line-height:1.6;">
+                                <b>3 步拿 key（免费）</b>：<br>
+                                1. 打开 <a href="https://jina.ai/reader" target="_blank" rel="noopener">jina.ai/reader</a>，往下滑到「API Key」区<br>
+                                2. 用 Google / GitHub 邮箱登录（每个号送 1M tokens 额度）<br>
+                                3. 复制 <code>jina_</code> 开头的 key 粘进上方输入框<br>
+                                <span style="color:#888;">额度用完可再注册一个邮箱，多个 key 用英文逗号 <code>,</code> 接起来粘进去，本扩展会自动轮换。</span>
+                            </div>
                         </div>
                         <label class="checkbox_label" style="display:flex;gap:.5em;align-items:center;margin:.5em 0;">
                             <input type="checkbox" id="cip-api-link-cover-vision">
@@ -1297,7 +1310,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.13';
+            const FE_VERSION = '8.0.14';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1405,6 +1418,15 @@ async function initApiPane() {
         s.linkParse.disabled = false;
         saveSettings();
         refreshStatus();
+    });
+
+    const jinaHowto = document.getElementById('cip-api-jina-howto');
+    const jinaHowtoPanel = document.getElementById('cip-api-jina-howto-panel');
+    jinaHowto?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (jinaHowtoPanel) {
+            jinaHowtoPanel.style.display = jinaHowtoPanel.style.display === 'none' ? '' : 'none';
+        }
     });
 
     if (jinaToken) {
