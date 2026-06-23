@@ -184,8 +184,9 @@
 .cip-category-action-icon {
     cursor: pointer;
     font-style: normal;
-    margin-left: 6px;
-    font-size: 12px;
+    margin-left: 4px;
+    font-size: 11px;
+    flex: 0 0 auto;
 }
 .cip-delete-category-btn {
     color: var(--cip-delete-color);
@@ -359,15 +360,24 @@ emoji-picker {
     gap: 6px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--cip-border-color);
-    overflow-x: auto;
+    overflow: hidden;
 }
 .cip-expression-categories {
     display: flex;
     align-items: center;
     gap: 6px;
     min-width: 0;
+    flex: 1 1 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scroll-snap-type: x proximity;
+    padding: 0 4px;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
 }
 .cip-expression-tab {
+    flex: 0 0 auto;
     min-width: 30px;
     height: 30px;
     padding: 0 10px;
@@ -377,6 +387,16 @@ emoji-picker {
     color: var(--cip-text-color);
     cursor: pointer;
     white-space: nowrap;
+}
+#cip-add-category-btn {
+    flex: 0 0 auto;
+}
+#cip-expression-tabs .cip-sticker-category-btn {
+    flex: 0 0 auto;
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    scroll-snap-align: start;
 }
 .cip-expression-tab.active,
 #cip-expression-tabs .cip-sticker-category-btn.active {

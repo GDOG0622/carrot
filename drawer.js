@@ -1296,7 +1296,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.6';
+            const FE_VERSION = '8.0.7';
             const major = (v) => String(v).split('.').slice(0, 2).join('.');
             if (major(st.version) !== major(FE_VERSION)) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议点击「同步后端」</span>`;

@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.6';
+    const V = 'v=8.0.7';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -577,7 +577,7 @@
     }
     function hideExpressionPopover() {
         expressionPopover.classList.add('hidden');
-        hideExpressionPopover();
+        emojiPicker.style.display = 'none';
     }
     function showExpressionPopover(mode = 'emoji') {
         positionExpressionPopover();
@@ -886,6 +886,7 @@
     }
     function hidePanel() {
         inputPanel.classList.remove('active');
+        hideExpressionPopover();
     }
 
     document.addEventListener('click', (e) => {
@@ -895,12 +896,10 @@
             !carrotButton.contains(e.target)
         )
             hidePanel();
-        if (
-            emojiPicker.style.display === 'block' &&
-            !emojiPicker.contains(e.target) &&
-            !emojiPickerBtn.contains(e.target)
-        ) {
-            emojiPicker.style.display = 'none';
+        if (!expressionPopover.classList.contains('hidden')
+            && !expressionPopover.contains(e.target)
+            && !emojiPickerBtn.contains(e.target)) {
+            hideExpressionPopover();
         }
     });
 
@@ -1020,9 +1019,9 @@
                 }
             }
 
-            if (emojiPicker.style.display === 'block') {
+            if (!expressionPopover.classList.contains('hidden')) {
                 setTimeout(() => {
-                    emojiPicker.style.display = 'none';
+                    hideExpressionPopover();
                 }, 100);
             }
         });

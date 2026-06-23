@@ -1,6 +1,6 @@
 {
   "name": "carrot-plugin",
-  "version": "8.0.6",
+  "version": "8.0.7",
   "description": "carrot SillyTavern server plugin backend",
   "main": "index.js",
   "private": true

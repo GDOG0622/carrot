@@ -44,14 +44,9 @@ function insertIntoTextarea(text) {
         return;
     }
     const value = textarea.value || '';
-    const start = Number.isFinite(textarea.selectionStart) ? textarea.selectionStart : value.length;
-    const end = Number.isFinite(textarea.selectionEnd) ? textarea.selectionEnd : start;
-    const prefix = value.slice(0, start);
-    const suffix = value.slice(end);
-    const spacerBefore = prefix && !/\s$/.test(prefix) ? ' ' : '';
-    const spacerAfter = suffix && !/^\s/.test(suffix) ? ' ' : '';
-    textarea.value = `${prefix}${spacerBefore}${text}${spacerAfter}${suffix}`;
-    const cursor = prefix.length + spacerBefore.length + text.length + spacerAfter.length;
+    const prefix = value.trim() ? `${value}\n` : '';
+    textarea.value = `${prefix}${text}`;
+    const cursor = textarea.value.length;
     textarea.focus();
     textarea.setSelectionRange(cursor, cursor);
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
