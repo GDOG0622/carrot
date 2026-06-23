@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.15';
+    const V = 'v=8.0.16';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -561,11 +561,20 @@
     }
     function insertIntoSillyTavern(t) {
         const o = document.querySelector('#send_textarea');
-        o
-            ? ((o.value += (o.value.trim() ? '\n' : '') + t),
-              o.dispatchEvent(new Event('input', { bubbles: !0 })),
-              o.focus())
-            : alert('未能找到SillyTavern的输入框！');
+        if (!o) { alert('未能找到SillyTavern的输入框！'); return; }
+        const nextValue = (o.value || '') + ((o.value || '').trim() ? '\n' : '') + t;
+        // 用原生原型的 value setter 写入：绕过 ST/textcomplete 等 wrapper 改写过的同名 setter，
+        // 确保 React/Vue 风格的受控组件能收到值变化，否则只改 o.value 视觉上不会刷新。
+        const proto = window.HTMLTextAreaElement && window.HTMLTextAreaElement.prototype;
+        const nativeSetter = proto && Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+        if (nativeSetter) nativeSetter.call(o, nextValue);
+        else o.value = nextValue;
+        o.dispatchEvent(new Event('input', { bubbles: true }));
+        o.dispatchEvent(new Event('change', { bubbles: true }));
+        if (window.jQuery) { try { window.jQuery(o).trigger('input').trigger('change'); } catch {} }
+        // 末尾光标 + 触发自适应高度
+        try { o.setSelectionRange(nextValue.length, nextValue.length); } catch {}
+        o.focus();
     }
     function escapeInlineHtml(value) {
         return String(value ?? '')
