@@ -7,6 +7,7 @@ import { extractUrls, parseAndReplace } from './link-parser.js';
 
 let isProcessing = false;        // 防止我们自己 dispatch 的 send 触发再次拦截
 let isInstalled = false;
+const hookedTextareas = new WeakSet();
 
 function toast(msg) {
     // 复用酒馆的 toastr 若存在
@@ -29,6 +30,39 @@ function setSendButtonLoading(loading) {
         if (prev !== '1') btn.disabled = false;
         btn.removeAttribute('data-cip-prev-disabled');
     }
+}
+
+function getSendTextareas() {
+    return Array.from(document.querySelectorAll('#send_textarea'));
+}
+
+function findSendTextarea() {
+    const all = getSendTextareas();
+    for (const el of all) {
+        if (el.offsetWidth > 0 && el.offsetHeight > 0) return el;
+    }
+    return all[0] || null;
+}
+
+function setTextareaValue(textarea, value) {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+    if (setter) setter.call(textarea, value);
+    else textarea.value = value;
+}
+
+function dispatchTextareaInput(textarea) {
+    try {
+        textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    } catch (error) {
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+}
+
+function syncAllSendTextareas(value) {
+    getSendTextareas().forEach((textarea) => {
+        setTextareaValue(textarea, value);
+        dispatchTextareaInput(textarea);
+    });
 }
 
 /**
@@ -69,9 +103,7 @@ async function processBeforeSend(textarea) {
     try {
         const result = await parseAndReplace(original);
         if (result.text !== original) {
-            textarea.value = result.text;
-            // 触发 input 事件让酒馆同步（保存草稿等）
-            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+            syncAllSendTextareas(result.text);
         }
         if (result.failed > 0 && result.success > 0) {
             toast(`${result.failed} 个链接解析失败，已跳过`);
@@ -93,7 +125,7 @@ async function processBeforeSend(textarea) {
 
 function onSendClick(e) {
     if (isProcessing) return;       // 我们自己 dispatch 的 click，放行
-    const ta = document.getElementById('send_textarea');
+    const ta = findSendTextarea();
     if (!ta) return;
     const urls = extractUrls(ta.value);
     if (urls.length === 0) return;  // 没链接，让酒馆原生处理
@@ -137,11 +169,15 @@ export function initSendHook() {
 
     const attach = () => {
         const btn = document.getElementById('send_but');
-        const ta = document.getElementById('send_textarea');
-        if (!btn || !ta) return false;
+        const textareas = getSendTextareas();
+        if (!btn || textareas.length === 0) return false;
         // capture: true 确保比酒馆自己的 listener 先触发
         btn.addEventListener('click', onSendClick, { capture: true });
-        ta.addEventListener('keydown', onTextareaKeydown, { capture: true });
+        textareas.forEach((ta) => {
+            if (hookedTextareas.has(ta)) return;
+            ta.addEventListener('keydown', onTextareaKeydown, { capture: true });
+            hookedTextareas.add(ta);
+        });
         isInstalled = true;
         console.log('[carrot] send hook 已安装');
         return true;

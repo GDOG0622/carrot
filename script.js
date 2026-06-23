@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.19';
+    const V = 'v=8.0.20';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -436,7 +436,7 @@
             music: '“[{content}.mp3]”',
         },
         wallet: '[{platform}|{amount}|{message}]',
-        stickers: '[{desc}]',
+        stickers: '“[{desc}]”',
         recall: '--',
         // v8.0: BUNNY 格式（原 sub-type，现作为 footer 按钮触发）
         bunny: '+{content}+',
@@ -569,11 +569,29 @@
         }
         return all[0] || null;
     }
+    function setTextareaValue(textarea, value) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        if (setter) setter.call(textarea, value);
+        else textarea.value = value;
+    }
+    function dispatchTextareaInput(textarea) {
+        try {
+            textarea.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+        } catch (error) {
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+    function syncAllSendTextareas(value) {
+        document.querySelectorAll('#send_textarea').forEach((textarea) => {
+            setTextareaValue(textarea, value);
+            dispatchTextareaInput(textarea);
+        });
+    }
     function insertIntoSillyTavern(t) {
         const o = findSendTextarea();
         if (!o) { alert('未能找到SillyTavern的输入框！'); return; }
-        o.value += (o.value.trim() ? '\n' : '') + t;
-        o.dispatchEvent(new Event('input', { bubbles: true }));
+        const next = o.value + (o.value.trim() ? '\n' : '') + t;
+        syncAllSendTextareas(next);
         o.focus();
     }
     function escapeInlineHtml(value) {
