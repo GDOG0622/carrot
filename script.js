@@ -18,6 +18,7 @@
     } = await import('./stickers.js');
     const { createUnsplashProcessor } = await import('./unsplash.js');
     const { initFormatRenderer } = await import('./format-renderer.js?v=20260514-inner-force-1');
+    const { initBackend } = await import('./backend.js');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -100,6 +101,8 @@
         document.body.appendChild(addStickersModal);
         document.body.appendChild(settingsPanel);
 
+        // v8.0: 启动后探测 backend plugin，不通时弹引导
+        initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
     } else {
         console.error(
             '胡萝卜输入面板：未能找到SillyTavern的UI挂载点，插件无法加载。',

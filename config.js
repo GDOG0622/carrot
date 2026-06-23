@@ -40,6 +40,10 @@ const DEFAULT_SETTINGS = {
     bubblePresets: {},
     syncFilename: '',
     localStorageMigrated: false,
+    // v8.0: 后端 plugin / 链接解析
+    linkParse: {
+        disabled: false,   // 用户主动跳过 → 不再弹引导，不再做链接解析
+    },
 };
 
 const legacyDefinitions = {
