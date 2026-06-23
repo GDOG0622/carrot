@@ -26,8 +26,11 @@ async function init(router) {
         });
     });
 
-    // TODO v8.0: POST /link-preview
-    // TODO v8.0: GET  /covers/:filename
+    // 链接解析
+    router.post('/link-preview', require('./link-preview'));
+
+    // 封面静态服务
+    router.get('/covers/:filename', require('./cover-cache').serve);
 
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot`);
 }

@@ -212,24 +212,26 @@ GET /api/plugins/carrot/ping
 
 ### 3.3 `/link-preview` 接口
 
+**单 URL 形式**（与 BunnyOS 一致；前端需要多 URL 时自己并发调多次）：
+
 ```
 POST /api/plugins/carrot/link-preview
-body: { urls: ["https://...", "https://..."] }  // 数组，1-5 个
+body: { url: "https://...", rawText: "可选，整条消息原文" }
 → 200 {
-  results: [
-    {
-      url: "原始 URL",
-      ok: true,
-      title: "...",
-      description: "...",
-      coverUrl: "/api/plugins/carrot/covers/<hash>.jpg",   // 本地缓存路径
-      siteName: "微信公众号" | "小红书" | "抖音" | "<域名>",
-    },
-    { url: "...", ok: false, error: "超时" },
-    ...
-  ]
+  url: "最终 URL（可能 redirect 后变了）",
+  title: "...",
+  description: "...",
+  image: "原始封面 URL",
+  imageLocal: "/api/plugins/carrot/covers/<hash>.jpg",   // 本地缓存路径，前端用这个
+  siteName: "微信公众号" | "小红书" | "抖音" | "<域名>",
+  source: "og" | "xhs-state" | "wechat-html" | "douyin-html" | "jina" | "fallback" | ...,
+  limitedReason: "解析失败原因（可能为空）"
 }
+→ 400 { error: "URL 格式无效" | "禁止访问内网地址" | "缺少 URL" }
+→ 502 { error: "抓取超时" | "抓取失败" }
 ```
+
+**rawText 字段用途**：当解析失败时，从用户消息原文里清洗出"分享文案"做兜底标题，特别针对小红书"复制本条信息...打开 App 查看"这种场景。
 
 **实现要点**（直接搬 [BunnyOS server.js:1909](D:/OneDrive/BunnyOS/server.js:1909)）：
 
@@ -362,8 +364,8 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 | 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地手动建软链测试 ping 通 | ✅ |
 | 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 | ✅ |
 | 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `backend.js`、`config.js`、`script.js` | 模拟 plugin 不通时弹窗 | ✅ |
-| 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview | ⏳ |
-| 6 | 写 `plugin/cover-cache.js`：封面下载 + LRU + `/covers/<id>` 静态服务 | `plugin/cover-cache.js` | 实测小红书/微信 URL | |
+| 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview | ✅ |
+| 6 | 写 `plugin/cover-cache.js`：封面下载 + LRU + `/covers/<id>` 静态服务 | `plugin/cover-cache.js` | 实测小红书/微信 URL | ✅ |
 | 7 | 前端：hook send_but + Enter，URL 提取 + 调后端 + 原地替换 + loading | `script.js` | 在酒馆贴 URL 发送 | |
 | 8 | 前端：`format-renderer.js` 加 `[link\|...]` token 渲染规则 | `format-renderer.js` | 看渲染卡片 | |
 | 9 | 前端：删 post/bunny 子按钮 + footer 加 robot 图标 | `ui.js`、`script.js`、`style.css` | 看面板 | |
