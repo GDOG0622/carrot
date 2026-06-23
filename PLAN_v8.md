@@ -13,7 +13,7 @@
 
 **v8.0 目标**：把 BunnyOS 项目（路径 `D:/OneDrive/BunnyOS`，另一个独立项目）里成熟的「链接解析」功能移植到 carrot。同时为后续 v8.1（语音输入）、v8.2（图片视觉）打好后端地基。
 
-**核心架构决策**：carrot v8.0 引入 SillyTavern **server plugin** 机制（不是 standalone 后端，不是依赖 BunnyOS）。前端 + 后端都在 carrot 仓库一处管理，用户安装时通过脚本建软链把 plugin 装到酒馆的 `plugins/carrot/`。
+**核心架构决策**：carrot v8.0 引入 SillyTavern **server plugin** 机制（不是 standalone 后端，不是依赖 BunnyOS）。前端 + 后端都在 carrot 仓库一处管理，用户安装时通过脚本把 plugin 复制到酒馆的 `plugins/carrot/`。
 
 ---
 
@@ -73,7 +73,7 @@ carrot/
 2. 弹模态引导面板（首次启动且 plugin 未启用时）：
    - 大字提示「**重启酒馆 = 重启服务器进程，不是 F5 刷新网页**」
    - 给出 Win/Linux 一键脚本下载按钮（脚本就在 carrot/plugin/install/）
-   - 脚本自动完成：定位酒馆根 → 改 config.yaml `enableServerPlugins: true` → 建软链 `<酒馆>/plugins/carrot → <扩展目录>/carrot/plugin`
+   - 脚本自动完成：定位酒馆根 → 改 config.yaml `enableServerPlugins: true` → 复制 `<扩展目录>/carrot/plugin → <酒馆>/plugins/carrot`
    - 提示用户重启酒馆，前端每 3s 轮询 `/api/plugins/carrot/ping`，通了自动关闭引导
    - 也提供"我就不开了，跳过链接解析"按钮（写 `extension_settings.carrot.linkParse.disabled = true`）
 3. 用户在酒馆输入框打字时正常贴 URL（不需要在 carrot 面板里操作）
@@ -264,7 +264,7 @@ body: { url: "https://...", rawText: "可选，整条消息原文" }
 
 ### 4.1 install.cmd（Windows）
 
-伪代码：
+伪代码（v8.0.2+ 复制部署，不再使用 mklink）：
 
 ```bat
 @echo off
@@ -283,12 +283,12 @@ if "%ST_ROOT%"=="" (
 :: 2. 改 config.yaml：enableServerPlugins: true（PowerShell sed）
 powershell -Command "(Get-Content '%ST_ROOT%\config.yaml') -replace '^enableServerPlugins:\s*false', 'enableServerPlugins: true' | Set-Content '%ST_ROOT%\config.yaml'"
 
-:: 3. 建软链：plugins\carrot → <扩展目录>\carrot\plugin
+:: 3. 复制 plugin：<扩展目录>\carrot\plugin → plugins\carrot
 ::    扩展目录约定为：<ST_ROOT>\data\default-user\extensions\carrot\plugin
 ::    （多用户场景可能要扫 data\*\extensions\carrot\plugin）
-mklink /D "%ST_ROOT%\plugins\carrot" "%ST_ROOT%\data\default-user\extensions\carrot\plugin"
+xcopy /E /I /Y "%ST_ROOT%\data\default-user\extensions\carrot\plugin" "%ST_ROOT%\plugins\carrot"
 if errorlevel 1 (
-  echo mklink 失败 —— 请右键以管理员身份运行本脚本
+  echo 复制失败 —— 请检查扩展目录是否存在
   pause
   exit /b 1
 )
@@ -297,7 +297,7 @@ echo 安装完成。请重启酒馆服务器（关掉跑 node 的黑窗口，重
 pause
 ```
 
-**注意**：扩展目录的实际位置可能不是 `data/default-user/extensions/carrot`。要先扫 `data/*/extensions/carrot` 找出来。
+**注意**：扩展目录的实际位置可能不是 `data/default-user/extensions/carrot`，也可能是 `data/<user>/extensions/third-party/carrot`。要先扫 `data/*/extensions*/carrot` 找出来。
 
 ### 4.2 install.sh（Linux / Mac / Termux）
 
@@ -328,21 +328,22 @@ fi
 # 2. 改 config.yaml
 sed -i.bak 's/^enableServerPlugins:.*false/enableServerPlugins: true/' "$ST_ROOT/config.yaml"
 
-# 3. 找扩展目录并建软链
-EXT_PLUGIN=$(find "$ST_ROOT/data" -maxdepth 4 -type d -name "plugin" -path "*/extensions/carrot/plugin" | head -1)
+# 3. 找扩展目录并复制
+EXT_PLUGIN=$(find "$ST_ROOT/data" -path "*/extensions*/carrot/plugin" -type d | head -1)
 if [ -z "$EXT_PLUGIN" ]; then
   echo "未找到 carrot 扩展目录"; exit 1
 fi
 mkdir -p "$ST_ROOT/plugins"
-ln -sfn "$EXT_PLUGIN" "$ST_ROOT/plugins/carrot"
+rm -rf "$ST_ROOT/plugins/carrot"
+cp -r "$EXT_PLUGIN" "$ST_ROOT/plugins/carrot"
 
 echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启动）"
 ```
 
 ### 4.3 uninstall.cmd / uninstall.sh
 
-- 删除 `<ST_ROOT>/plugins/carrot` 软链
-- 删除 `<ST_ROOT>/plugins/carrot/covers/` 缓存目录（如果存在为真实目录而非软链下的子目录）
+- 删除复制到 `<ST_ROOT>/plugins/carrot` 的后端 plugin
+- 删除 `<ST_ROOT>/plugins/carrot/covers/` 缓存目录（如果存在）
 - 询问"是否恢复 config.yaml 的 enableServerPlugins: false"（Y/N，默认 N，因为可能有其他 plugin 在用）
 
 ---
@@ -366,7 +367,7 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 | # | 任务 | 输出文件 | 验证方式 | 状态 |
 |---|---|---|---|---|
 | 1 | **调研 ST plugin API**（不写代码） | 本文档 §3.1 补充结论 | 看官方源码或社区示例 | ✅ |
-| 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地手动建软链测试 ping 通 | ✅ |
+| 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地复制到 ST plugins 目录后测试 ping 通 | ✅ |
 | 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 | ✅ |
 | 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `backend.js`、`config.js`、`script.js` | 模拟 plugin 不通时弹窗 | ✅ |
 | 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview | ✅ |
@@ -405,7 +406,7 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 ## 8. 常见陷阱 / 避坑提示
 
 1. **酒馆扩展目录可能在 `data/<user>/extensions/carrot`，user 不一定是 default-user**。安装脚本要扫所有用户目录。
-2. **Windows mklink 需要管理员或开发者模式**，普通用户跑 cmd 会失败。脚本检测到失败要明确报错"右键管理员运行"。
+2. **v8.0.2+ 不再使用 Windows mklink**。安装脚本必须复制 plugin 目录，避免管理员权限和文件系统兼容问题。
 3. **config.yaml 的 sed 改写**：用户可能已经把 `enableServerPlugins: true`（被其他 plugin 用），脚本要先检测再决定改不改；用户也可能注释了这行，要兼容。建议用 yaml parser 而不是正则，但脚本依赖少更好——折中是先用 grep 检测当前状态。
 4. **format-renderer 重复渲染**：消息可能被酒馆多次重渲染（编辑、流式更新），新 token 渲染必须 idempotent。加 `data-carrot-link-rendered="1"` 属性防重。
 5. **send hook 的优先级**：其他扩展（如 Quick Reply）可能也 hook 同样事件，要避免冲突。优先使用 `eventSource.on` 而不是直接 patch DOM 事件，如果 eventSource 不行再降级 DOM。

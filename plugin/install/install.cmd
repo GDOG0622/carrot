@@ -6,7 +6,7 @@ REM ============================================================
 REM   carrot v8 plugin 安装脚本 (Windows)
 REM   - 定位酒馆根目录
 REM   - 把 config.yaml 的 enableServerPlugins 改为 true
-REM   - 建立软链接 <ST_ROOT>/plugins/carrot -> 本扩展目录的 plugin
+REM   - 复制本扩展目录的 plugin 到 <ST_ROOT>/plugins/carrot
 REM ============================================================
 
 echo.

@@ -24,9 +24,9 @@ if not exist "!ST_ROOT!\plugins\carrot" (
     exit /b 0
 )
 
-REM 删软链 (rmdir 适用于目录软链)
-echo [步骤] 删除软链 !ST_ROOT!\plugins\carrot
-rmdir "!ST_ROOT!\plugins\carrot" 2>nul
+REM 删已复制的 plugin 目录（也兼容旧版目录软链）
+echo [步骤] 删除 !ST_ROOT!\plugins\carrot
+rmdir /s /q "!ST_ROOT!\plugins\carrot" 2>nul
 if exist "!ST_ROOT!\plugins\carrot" (
     echo [错误] 删除失败
     pause

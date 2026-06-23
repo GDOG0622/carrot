@@ -88,9 +88,14 @@ function buildModal() {
                 <li>打开酒馆扩展目录里的 <code>carrot/plugin/install/</code> 文件夹</li>
                 <li>双击运行对应脚本：
                     <ul style="margin:.3em 0;">
-                        <li><b>Windows</b>：<code>install.cmd</code>（需右键以管理员身份运行）</li>
+                        <li><b>Windows</b>：<code>install.cmd</code></li>
                         <li><b>Linux / Mac / Termux</b>：<code>bash install.sh</code></li>
                     </ul>
+                    <div style="font-size:.9em;color:#666;margin-top:.35em;">
+                        服务器终端可先进入酒馆根目录，再执行：<br>
+                        <code>EXT_INSTALL=$(find "$PWD/data" -path '*/extensions*/carrot/plugin/install/install.sh' -type f | head -n 1)</code><br>
+                        <code>bash "$EXT_INSTALL" "$PWD"</code>
+                    </div>
                 </li>
                 <li style="color:#d33;font-weight:600;">
                     重启酒馆<u>服务器进程</u>

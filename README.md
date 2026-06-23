@@ -143,8 +143,14 @@
 
 1. 打开酒馆扩展目录里的 `carrot/plugin/install/` 文件夹
 2. 双击运行对应脚本：
-   - **Windows**：`install.cmd`（需右键以管理员身份运行 —— 创建软链需要权限）
+   - **Windows**：`install.cmd`
    - **Linux / Mac / Termux**：`bash install.sh`
+     若你在服务器终端里，不确定扩展目录在哪，先用下面这组命令自动查找：
+     ```sh
+     cd /root/sillytavern
+     EXT_INSTALL=$(find "$PWD/data" -path '*/extensions*/carrot/plugin/install/install.sh' -type f | head -n 1)
+     bash "$EXT_INSTALL" "$PWD"
+     ```
 3. 脚本会自动完成：
    - 定位酒馆根目录（扫常见路径 + 当前位置）
    - 把 `config.yaml` 的 `enableServerPlugins` 改为 `true`
@@ -188,7 +194,7 @@
    - **Windows**：`uninstall.cmd`
    - **Linux / Mac / Termux**：`bash uninstall.sh`
 3. 脚本会：
-   - 删除软链 `<酒馆根>/plugins/carrot`
+   - 删除复制到 `<酒馆根>/plugins/carrot` 的后端 plugin
    - 删除封面缓存目录
    - 询问是否把 `enableServerPlugins` 改回 `false`（若你还有其它 plugin 在用，选 N）
 4. 重启酒馆服务器进程生效

@@ -3,7 +3,7 @@
 #   carrot v8 plugin 安装脚本 (Linux / macOS / Termux)
 #   - 定位酒馆根目录
 #   - 把 config.yaml 的 enableServerPlugins 改为 true
-#   - 建立软链接 <ST_ROOT>/plugins/carrot -> 本扩展目录的 plugin
+#   - 复制本扩展目录的 plugin 到 <ST_ROOT>/plugins/carrot
 # ============================================================
 set -e
 
