@@ -266,7 +266,7 @@
 #cip-footer-controls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 3px;
     flex-wrap: nowrap;
     flex-shrink: 0;
 }

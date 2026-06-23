@@ -129,6 +129,7 @@
         addCategoryBtn = get('cip-add-category-btn'),
         stickerGrid = get('cip-sticker-grid');
     const emojiPickerBtn = get('cip-emoji-picker-btn');
+    const bunnyButton = get('cip-bunny-button');
     const saveCategoryBtn = get('cip-save-category-btn'),
         cancelCategoryBtn = get('cip-cancel-category-btn'),
         newCategoryNameInput = get('cip-new-category-name');
@@ -417,13 +418,13 @@
             image: '“[{content}.jpg]”',
             video: '“[{content}.mp4]”',
             music: '“[{content}.mp3]”',
-            post: '“[{content}.link]”',
-            bunny: "+{content}+",
         },
         voice: '={duration}|{message}=',
         wallet: '[{platform}|{amount}|{message}]',
         stickers: '“[{desc}]”',
         recall: '--',
+        // v8.0: BUNNY 格式（原 sub-type，现作为 footer 按钮触发）
+        bunny: '+{content}+',
     };
 
     const textPlaceholderMap = {
@@ -431,8 +432,6 @@
         image: '在此输入文字...',
         video: '在此输入文字...',
         music: '在此输入文字...',
-        post: '在此输入文字...',
-        bunny: '在这里鞭策BUNNY吧...',
     };
 
     function updateFormatDisplay() {
@@ -715,6 +714,25 @@
     recallButton.addEventListener('click', () =>
         insertIntoSillyTavern(formatTemplates.recall),
     );
+
+    // v8.0: BUNNY 按钮（原 bunny 子按钮的功能搬到 footer）
+    if (bunnyButton) {
+        bunnyButton.addEventListener('click', () => {
+            const content = mainInput.value.trim();
+            if (!content) {
+                if (typeof toastr !== 'undefined') {
+                    toastr.info('请先在 carrot 主输入框打字', 'BUNNY');
+                } else {
+                    alert('请先在 carrot 主输入框打字');
+                }
+                return;
+            }
+            insertIntoSillyTavern(
+                formatTemplates.bunny.replace('{content}', content),
+            );
+            mainInput.value = '';
+        });
+    }
 
     insertButton.addEventListener('click', () => {
         let formattedText = '';

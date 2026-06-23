@@ -23,7 +23,7 @@ export function createUI() {
         <div id="cip-format-display"></div>
         <div id="cip-panel-content">
              <div id="cip-text-content" class="cip-content-section">
-                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="post">帖子</button><button class="cip-sub-option-btn" data-type="bunny">BUNNY</button></div>
+                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button></div>
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>
@@ -39,6 +39,9 @@ export function createUI() {
                 </button>
                 <button id="cip-emoji-picker-btn" class="cip-footer-icon-button" type="button" title="Emoji">
                     <i class="fa-solid fa-face-smile"></i>
+                </button>
+                <button id="cip-bunny-button" class="cip-footer-icon-button" type="button" title="BUNNY 模式">
+                    <i class="fa-solid fa-robot"></i>
                 </button>
             </div>
             <div class="cip-footer-actions">
