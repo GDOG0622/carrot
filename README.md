@@ -32,9 +32,13 @@
 ### 方法二：手动安装
 
 1. 下载本仓库所有文件
-2. 将文件夹放入 SillyTavern 的第三方扩展目录：
+2. 将文件夹放入 SillyTavern 的第三方扩展目录。installForAll 通常在：
    ```
-   SillyTavern/data/<user>/extensions/carrot/
+   SillyTavern/public/scripts/extensions/third-party/carrot/
+   ```
+   单用户安装通常在：
+   ```
+   SillyTavern/data/<user>/extensions/third-party/carrot/
    ```
 3. 重启 SillyTavern
 

@@ -166,7 +166,7 @@ async function init(router) {
     router.get('/covers/:filename', require('./cover-cache').serve);
 
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot；运行环境 ${runtime.manager || '裸 node'}`);
-    console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，需重跑 install 脚本同步后端文件`);
+    console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，可在 carrot API 面板点击“同步后端”`);
 }
 
 async function exit() {

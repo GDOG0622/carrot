@@ -25,12 +25,17 @@ if not exist "!SRC_PLUGIN!\index.js" (
     exit /b 1
 )
 
-REM 2. 从源目录路径反推 ST_ROOT
-REM    路径模板: <ST_ROOT>\data\<user>\extensions\carrot\plugin
-REM    上溯 4 级即为 ST_ROOT
+REM 2. 从源 plugin 目录向上寻找 ST_ROOT
+REM    兼容 installForAll: <ST_ROOT>\public\scripts\extensions\third-party\carrot\plugin
+REM    兼容单用户安装: <ST_ROOT>\data\<user>\extensions[\third-party]\carrot\plugin
 set "ST_ROOT="
-for %%I in ("!SRC_PLUGIN!\..\..\..\..\..") do set "GUESS_ROOT=%%~fI"
-if exist "!GUESS_ROOT!\config.yaml" if exist "!GUESS_ROOT!\server.js" set "ST_ROOT=!GUESS_ROOT!"
+set "CUR=!SRC_PLUGIN!"
+for /L %%N in (1,1,8) do (
+    if "!ST_ROOT!"=="" (
+        for %%I in ("!CUR!\..") do set "CUR=%%~fI"
+        if exist "!CUR!\config.yaml" if exist "!CUR!\server.js" set "ST_ROOT=!CUR!"
+    )
+)
 
 REM 3. 若没找到，扫描常见路径
 if "!ST_ROOT!"=="" (

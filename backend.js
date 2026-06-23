@@ -105,7 +105,7 @@ function buildModal() {
                         <li><b>Linux / Mac / Termux</b>：<code>bash install.sh</code></li>
                     </ul>
                     <div style="font-size:.9em;color:#666;margin-top:.35em;">
-                        服务器终端可先进入酒馆根目录，再执行：<br>
+                        兼容 installForAll 和单用户安装。服务器终端可先进入酒馆根目录，再执行：<br>
                         <code>EXT_INSTALL=$(find "$PWD/public/scripts/extensions" "$PWD/data" -path '*/carrot/plugin/install/install.sh' -type f 2>/dev/null | head -n 1)</code><br>
                         <code>bash "$EXT_INSTALL" "$PWD"</code>
                     </div>

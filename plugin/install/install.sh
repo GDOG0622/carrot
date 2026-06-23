@@ -22,12 +22,19 @@ if [ ! -f "$SRC_PLUGIN/index.js" ]; then
     exit 1
 fi
 
-# 2. 反推 ST_ROOT：<ST_ROOT>/data/<user>/extensions/carrot/plugin → 上溯 4 级
+# 2. 从源 plugin 目录向上寻找 ST_ROOT。
+#    兼容 installForAll: <ST_ROOT>/public/scripts/extensions/third-party/carrot/plugin
+#    兼容单用户安装: <ST_ROOT>/data/<user>/extensions[/third-party]/carrot/plugin
 ST_ROOT=""
-GUESS_ROOT="$(cd "$SRC_PLUGIN/../../../.." 2>/dev/null && pwd || true)"
-if [ -n "$GUESS_ROOT" ] && [ -f "$GUESS_ROOT/config.yaml" ] && [ -f "$GUESS_ROOT/server.js" ]; then
-    ST_ROOT="$GUESS_ROOT"
-fi
+CUR="$SRC_PLUGIN"
+for _ in 1 2 3 4 5 6 7 8; do
+    CUR="$(cd "$CUR/.." 2>/dev/null && pwd || true)"
+    if [ -z "$CUR" ] || [ "$CUR" = "/" ]; then break; fi
+    if [ -f "$CUR/config.yaml" ] && [ -f "$CUR/server.js" ]; then
+        ST_ROOT="$CUR"
+        break
+    fi
+done
 
 # Termux 检测
 IS_TERMUX=0
