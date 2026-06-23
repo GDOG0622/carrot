@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.4';
+    const V = 'v=8.0.5';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -90,6 +90,7 @@
         carrotButton,
         inputPanel,
         emojiPicker,
+        expressionPopover,
         addCategoryModal,
         addStickersModal,
         settingsPanel,
@@ -101,6 +102,11 @@
         document.body.appendChild(carrotButton);
         document.body.appendChild(inputPanel);
         document.body.appendChild(emojiPicker);
+        document.body.appendChild(expressionPopover);
+        expressionPopover.insertBefore(
+            emojiPicker,
+            document.getElementById('cip-sticker-grid'),
+        );
         document.body.appendChild(addCategoryModal);
         document.body.appendChild(addStickersModal);
         document.body.appendChild(settingsPanel);
@@ -121,12 +127,10 @@
     // --- 3. 获取所有元素的引用 ---
     const get = (id) => document.getElementById(id);
     const queryAll = (sel) => document.querySelectorAll(sel);
-    const formatDisplay = get('cip-format-display'),
-        insertButton = get('cip-insert-button'),
+    const insertButton = get('cip-insert-button'),
         recallButton = get('cip-recall-button');
-    const mainInput = get('cip-main-input'),
-        voiceDurationInput = get('cip-voice-duration'),
-        voiceMessageInput = get('cip-voice-message');
+    const mainInput = get('cip-main-input');
+    const walletContent = get('cip-wallet-content');
     const walletPlatformInput = get('cip-wallet-platform');
     const walletAmountInput = get('cip-wallet-amount');
     const walletMessageInput = get('cip-wallet-message');
@@ -134,6 +138,7 @@
         addCategoryBtn = get('cip-add-category-btn'),
         stickerGrid = get('cip-sticker-grid');
     const emojiPickerBtn = get('cip-emoji-picker-btn');
+    const expressionEmojiTab = get('cip-expression-emoji-tab');
     const bunnyButton = get('cip-bunny-button');
     const saveCategoryBtn = get('cip-save-category-btn'),
         cancelCategoryBtn = get('cip-cancel-category-btn'),
@@ -411,12 +416,11 @@
     }
 
     // --- 4. 核心逻辑与事件监听 ---
-    let currentTab = 'text',
-        currentTextSubType = 'plain',
+    let currentTextSubType = 'plain',
         stickerData = {},
         stickerLookup = new Map(),
         currentStickerCategory = '',
-        selectedSticker = null;
+        expressionMode = 'emoji';
     const formatTemplates = {
         text: {
             plain: '“{content}”',
@@ -424,7 +428,6 @@
             video: '“[{content}.mp4]”',
             music: '“[{content}.mp3]”',
         },
-        voice: '={duration}|{message}=',
         wallet: '[{platform}|{amount}|{message}]',
         stickers: '“[{desc}]”',
         recall: '--',
@@ -437,85 +440,66 @@
         image: '在此输入文字...',
         video: '在此输入文字...',
         music: '在此输入文字...',
+        wallet: '填写钱包信息...',
     };
 
     function updateFormatDisplay() {
-        const e = get('cip-input-panel').querySelector(
+        const e = expressionPopover.querySelector(
             `.cip-sticker-category-btn[data-category="${currentStickerCategory}"]`,
         );
         queryAll('.cip-category-action-icon').forEach((e) => e.remove());
-        switch (currentTab) {
-            case 'text':
-                formatDisplay.textContent = `格式: ${formatTemplates.text[currentTextSubType].replace('{content}', '内容')}`;
-                break;
-            case 'voice':
-                formatDisplay.textContent = '格式: =数字|内容=';
-                break;
-            case 'wallet':
-                formatDisplay.textContent =
-                    '格式: [平台名称-金额/车牌号-留言/物品名称]';
-                break;
-            case 'stickers':
-                formatDisplay.textContent = '格式: “描述”';
-                if (e) {
-                    const t = document.createElement('i');
-                    t.className =
-                        'cip-category-action-icon fa-solid fa-plus';
-                    t.title = '向此分类添加表情包';
-                    t.onclick = (t) => {
-                        t.stopPropagation();
-                        openAddStickersModal(currentStickerCategory);
-                    };
-                    e.appendChild(t);
-                    const o = document.createElement('i');
-                    o.className =
-                        'cip-category-action-icon cip-delete-category-btn fa-solid fa-trash-can';
-                    o.title = '删除此分类';
-                    o.onclick = (t) => {
-                        t.stopPropagation();
-                        confirm(`确定删除「${currentStickerCategory}」分类?`) &&
-                            (delete stickerData[currentStickerCategory],
-                            saveStickerData(),
-                            renderCategories(),
-                            switchStickerCategory(
-                                Object.keys(stickerData)[0] || '',
-                            ));
-                    };
-                    e.appendChild(o);
-                }
+        if (e) {
+            const t = document.createElement('i');
+            t.className = 'cip-category-action-icon fa-solid fa-plus';
+            t.title = '向此合集添加表情包';
+            t.onclick = (event) => {
+                event.stopPropagation();
+                openAddStickersModal(currentStickerCategory);
+            };
+            e.appendChild(t);
+            const o = document.createElement('i');
+            o.className = 'cip-category-action-icon cip-delete-category-btn fa-solid fa-trash-can';
+            o.title = '删除此合集';
+            o.onclick = (event) => {
+                event.stopPropagation();
+                confirm(`确定删除「${currentStickerCategory}」合集?`) &&
+                    (delete stickerData[currentStickerCategory],
+                    saveStickerData(),
+                    renderCategories(),
+                    switchStickerCategory(Object.keys(stickerData)[0] || ''));
+            };
+            e.appendChild(o);
         }
-    }
-    function switchTab(t) {
-        ((currentTab = t),
-            queryAll('.cip-tab-button').forEach((e) =>
-                e.classList.toggle('active', e.dataset.tab === t),
-            ),
-            queryAll('.cip-content-section').forEach((e) =>
-                e.classList.toggle('active', e.id === `cip-${t}-content`),
-            ));
-        const o = Object.keys(stickerData)[0];
-        ('stickers' === t &&
-            (!currentStickerCategory && o
-                ? switchStickerCategory(o)
-                : switchStickerCategory(currentStickerCategory)),
-            updateFormatDisplay());
     }
     function switchTextSubType(t) {
         ((currentTextSubType = t),
             queryAll('#cip-text-content .cip-sub-option-btn').forEach((e) =>
                 e.classList.toggle('active', e.dataset.type === t),
             ),
+            mainInput.parentElement.classList.toggle('hidden', t === 'wallet'),
+            walletContent?.classList.toggle('hidden', t !== 'wallet'),
             (mainInput.placeholder =
                 textPlaceholderMap[t] || '在此输入文字...'),
             updateFormatDisplay());
     }
+    function setExpressionMode(mode) {
+        expressionMode = mode;
+        expressionEmojiTab?.classList.toggle('active', mode === 'emoji');
+        queryAll('.cip-sticker-category-btn').forEach((e) =>
+            e.classList.toggle('active', mode === 'sticker' && e.dataset.category === currentStickerCategory),
+        );
+        emojiPicker.classList.toggle('hidden', mode !== 'emoji');
+        emojiPicker.style.display = mode === 'emoji' ? 'block' : 'none';
+        stickerGrid.classList.toggle('hidden', mode !== 'sticker');
+    }
     function switchStickerCategory(t) {
         ((currentStickerCategory = t),
+            (expressionMode = 'sticker'),
             queryAll('.cip-sticker-category-btn').forEach((e) =>
                 e.classList.toggle('active', e.dataset.category === t),
             ),
             renderStickers(t),
-            (selectedSticker = null),
+            setExpressionMode('sticker'),
             updateFormatDisplay());
     }
     function renderStickers(t) {
@@ -534,11 +518,8 @@
                 (i.title = t.desc),
                 (i.className = 'cip-sticker-item'),
                 (i.onclick = () => {
-                    (queryAll('.cip-sticker-item.selected').forEach((e) =>
-                        e.classList.remove('selected'),
-                    ),
-                        i.classList.add('selected'),
-                        (selectedSticker = t));
+                    insertIntoSillyTavern(formatTemplates.stickers.replace('{desc}', t.desc));
+                    hideExpressionPopover();
                 }));
             const n = document.createElement('button');
             ((n.innerHTML = '<i class="fa-solid fa-trash-can"></i>'),
@@ -577,6 +558,31 @@
               o.dispatchEvent(new Event('input', { bubbles: !0 })),
               o.focus())
             : alert('未能找到SillyTavern的输入框！');
+    }
+    function positionExpressionPopover() {
+        const btnRect = emojiPickerBtn.getBoundingClientRect();
+        const panelRect = inputPanel.getBoundingClientRect();
+        const isMobile = window.innerWidth <= 768;
+        const width = isMobile ? Math.min(window.innerWidth - 40, 340) : 360;
+        expressionPopover.style.width = `${width}px`;
+        const left = isMobile
+            ? Math.max(10, (window.innerWidth - width) / 2)
+            : Math.max(10, Math.min(panelRect.left, window.innerWidth - width - 10));
+        const top = Math.max(10, Math.min(btnRect.top - 370, window.innerHeight - 390));
+        expressionPopover.style.left = `${left}px`;
+        expressionPopover.style.top = `${top}px`;
+        emojiPicker.style.position = 'static';
+        emojiPicker.style.width = '100%';
+        emojiPicker.style.maxHeight = '330px';
+    }
+    function hideExpressionPopover() {
+        expressionPopover.classList.add('hidden');
+        hideExpressionPopover();
+    }
+    function showExpressionPopover(mode = 'emoji') {
+        positionExpressionPopover();
+        expressionPopover.classList.remove('hidden');
+        setExpressionMode(mode);
     }
 
     function replacePlaceholderWithNode(container, placeholder, node) {
@@ -678,39 +684,15 @@
 
     emojiPickerBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isVisible = emojiPicker.style.display === 'block';
+        const isVisible = !expressionPopover.classList.contains('hidden');
         if (isVisible) {
-            emojiPicker.style.display = 'none';
+            hideExpressionPopover();
         } else {
-            const btnRect = emojiPickerBtn.getBoundingClientRect();
-            const panelRect = inputPanel.getBoundingClientRect();
-            const isMobile = window.innerWidth <= 768;
-
-            if (isMobile) {
-                const pickerWidth = 300;
-                const pickerHeight = 350;
-                const left = Math.max(10, (window.innerWidth - pickerWidth) / 2);
-                const top = Math.max(10, (window.innerHeight - pickerHeight) / 2);
-                emojiPicker.style.top = `${top}px`;
-                emojiPicker.style.left = `${left}px`;
-            } else {
-                let top = panelRect.top;
-                let left = panelRect.right + 10;
-                if (left + 350 > window.innerWidth) {
-                    left = panelRect.left - 350 - 10;
-                }
-                emojiPicker.style.top = `${top}px`;
-                emojiPicker.style.left = `${Math.max(10, left)}px`;
-            }
-            emojiPicker.style.display = 'block';
+            showExpressionPopover('emoji');
         }
     });
+    expressionEmojiTab?.addEventListener('click', () => setExpressionMode('emoji'));
 
-    queryAll('.cip-tab-button').forEach((button) =>
-        button.addEventListener('click', (e) =>
-            switchTab(e.currentTarget.dataset.tab),
-        ),
-    );
     queryAll('#cip-text-content .cip-sub-option-btn').forEach((button) =>
         button.addEventListener('click', (e) =>
             switchTextSubType(e.currentTarget.dataset.type),
@@ -743,25 +725,16 @@
         let formattedText = '';
         let inputToClear = null;
 
-        switch (currentTab) {
-            case 'text':
+        switch (currentTextSubType) {
+            case 'plain':
+            case 'image':
+            case 'video':
+            case 'music':
                 if (mainInput.value.trim()) {
                     formattedText = formatTemplates.text[
                         currentTextSubType
                     ].replace('{content}', mainInput.value);
                     inputToClear = mainInput;
-                }
-                break;
-            case 'voice':
-                if (
-                    voiceDurationInput.value.trim() &&
-                    voiceMessageInput.value.trim()
-                ) {
-                    formattedText = formatTemplates.voice
-                        .replace('{duration}', voiceDurationInput.value)
-                        .replace('{message}', voiceMessageInput.value);
-                    inputToClear = voiceMessageInput;
-                    voiceDurationInput.value = '';
                 }
                 break;
             case 'wallet': {
@@ -779,13 +752,6 @@
                 }
                 break;
             }
-            case 'stickers':
-                if (selectedSticker) {
-                    formattedText = formatTemplates.stickers
-                        .replace('{desc}', selectedSticker.desc)
-                        .replace('{url}', selectedSticker.url);
-                }
-                break;
         }
 
         if (formattedText) {

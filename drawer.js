@@ -811,6 +811,10 @@ export function injectExtensionDrawer({
                     <details class="cip-ext-field" open>
                         <summary><b>链接解析</b></summary>
                         <div id="cip-api-link-status" style="margin:.5em 0;color:#888;font-size:.9em;"></div>
+                        <div class="cip-ext-field">
+                            <small>Jina Reader Key（可选，小红书/反爬兜底）</small>
+                            <input type="password" id="cip-api-jina-token" class="text_pole" placeholder="jina_...">
+                        </div>
                         <button id="cip-api-link-reenable" class="menu_button" style="display:none;">重新启用链接解析</button>
                     </details>
 
@@ -1258,6 +1262,7 @@ async function initApiPane() {
     const runtimeInfo = document.getElementById('cip-api-runtime');
     const linkStatus = document.getElementById('cip-api-link-status');
     const linkReenableBtn = document.getElementById('cip-api-link-reenable');
+    const jinaToken = document.getElementById('cip-api-jina-token');
     const asrSilicon = document.getElementById('cip-api-asr-silicon');
     const asrGroq = document.getElementById('cip-api-asr-groq');
 
@@ -1291,7 +1296,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.4';
+            const FE_VERSION = '8.0.5';
             const major = (v) => String(v).split('.').slice(0, 2).join('.');
             if (major(st.version) !== major(FE_VERSION)) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议点击「同步后端」</span>`;
@@ -1379,6 +1384,16 @@ async function initApiPane() {
         saveSettings();
         refreshStatus();
     });
+
+    if (jinaToken) {
+        s.linkParse = s.linkParse || {};
+        jinaToken.value = s.linkParse.jinaToken || '';
+        jinaToken.addEventListener('input', () => {
+            s.linkParse = s.linkParse || {};
+            s.linkParse.jinaToken = jinaToken.value.trim();
+            saveSettings();
+        });
+    }
 
     if (asrSilicon) {
         asrSilicon.value = s.asr.siliconflowKey || '';

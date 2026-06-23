@@ -14,23 +14,14 @@ export function createUI() {
         'cip-input-panel',
         'cip-frosted-glass',
         `
-        <nav id="cip-panel-tabs">
-            <button class="cip-tab-button active" data-tab="text">文字信息</button>
-            <button class="cip-tab-button" data-tab="voice">语音</button>
-            <button class="cip-tab-button" data-tab="wallet">钱包</button>
-            <button class="cip-tab-button" data-tab="stickers">表情包</button>
-        </nav>
-        <div id="cip-format-display"></div>
         <div id="cip-panel-content">
-             <div id="cip-text-content" class="cip-content-section">
-                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button></div>
+             <div id="cip-text-content" class="cip-content-section active">
+                <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="wallet">钱包</button></div>
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>
+                <div id="cip-wallet-content" class="cip-wallet-fields hidden"><div class="cip-wallet-row"><input type="text" id="cip-wallet-platform" placeholder="平台名称"><input type="text" id="cip-wallet-amount" placeholder="金额/车牌号"></div><div class="cip-wallet-row"><input type="text" id="cip-wallet-message" placeholder="留言/物品名称"></div></div>
             </div>
-            <div id="cip-voice-content" class="cip-content-section"><input type="number" id="cip-voice-duration" placeholder="输入时长 (秒, 仅数字)"><textarea id="cip-voice-message" placeholder="输入语音识别出的内容..."></textarea></div>
-            <div id="cip-wallet-content" class="cip-content-section"><div class="cip-wallet-row"><input type="text" id="cip-wallet-platform" placeholder="平台名称"><input type="text" id="cip-wallet-amount" placeholder="金额/车牌号"></div><div class="cip-wallet-row"><input type="text" id="cip-wallet-message" placeholder="留言/物品名称"></div></div>
-            <div id="cip-stickers-content" class="cip-content-section"><div id="cip-sticker-categories" class="cip-sub-options-container"><button id="cip-add-category-btn" class="cip-sub-option-btn"><i class="fa-solid fa-plus"></i></button></div><div id="cip-sticker-grid"></div></div>
         </div>
         <div id="cip-panel-footer">
             <div id="cip-footer-controls">
@@ -59,6 +50,12 @@ export function createUI() {
         'emoji-picker',
         'cip-emoji-picker',
         'cip-frosted-glass',
+    );
+    const expressionPopover = create(
+        'div',
+        'cip-expression-popover',
+        'cip-frosted-glass hidden',
+        `<div id="cip-expression-tabs"><button id="cip-expression-emoji-tab" class="cip-expression-tab active" type="button" title="Emoji"><i class="fa-solid fa-face-smile"></i></button><div id="cip-sticker-categories" class="cip-expression-categories"></div><button id="cip-add-category-btn" class="cip-expression-tab" type="button" title="添加表情包合集"><i class="fa-solid fa-plus"></i></button></div><div id="cip-sticker-grid" class="hidden"></div>`,
     );
     const addCategoryModal = create(
         'div',
@@ -273,6 +270,7 @@ export function createUI() {
         carrotButton,
         inputPanel,
         emojiPicker,
+        expressionPopover,
         addCategoryModal,
         addStickersModal,
         settingsPanel,

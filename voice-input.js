@@ -236,6 +236,7 @@ async function stopRecording() {
     const recorder = state.recorder;
     const stream = state.stream;
     const mime = state.mime;
+    const startAt = state.startAt;
     if (!recorder) return;
     if (state.maxTimer) clearTimeout(state.maxTimer);
     state.maxTimer = null;
@@ -256,7 +257,12 @@ async function stopRecording() {
     }
     toast('识别中...');
     const text = await transcribe(blob, mime);
-    if (text) insertIntoTextarea(text);
+    if (text) {
+        const duration = Math.max(1, Math.round((Date.now() - startAt) / 1000));
+        const mm = String(Math.floor(duration / 60)).padStart(2, '0');
+        const ss = String(duration % 60).padStart(2, '0');
+        insertIntoTextarea(`=${mm}:${ss}|${text}=`);
+    }
 }
 
 export function initVoiceInput() {

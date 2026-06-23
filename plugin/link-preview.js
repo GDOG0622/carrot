@@ -4,7 +4,7 @@
 
 const { cachePreviewImage } = require('./cover-cache');
 
-// Jina reader token：可通过环境变量配置，没有也能用（免费档限速更严）
+// Jina reader token：可通过请求体或环境变量配置，没有也能用（免费档限速更严）
 const JINA_TOKEN = process.env.CARROT_JINA_TOKEN || '';
 
 // ───────────── 域名判定 ─────────────
@@ -364,7 +364,7 @@ const normalizeJinaMarkdown = (markdown, sourceUrl, rawText) => {
     };
 };
 
-const tryJinaReader = async (targetUrl, rawText) => {
+const tryJinaReader = async (targetUrl, rawText, jinaToken = '') => {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 12000);
     try {
@@ -374,7 +374,7 @@ const tryJinaReader = async (targetUrl, rawText) => {
             signal: ctrl.signal,
             headers: {
                 'Accept': 'text/markdown,text/plain;q=0.9,*/*;q=0.8',
-                ...(JINA_TOKEN ? { Authorization: `Bearer ${JINA_TOKEN}` } : {}),
+                ...(jinaToken ? { Authorization: `Bearer ${jinaToken}` } : {}),
             },
         });
         if (!r.ok) return null;
@@ -399,6 +399,7 @@ async function handler(req, res) {
     try {
         let raw = String(req.body?.url || '').trim();
         const rawText = String(req.body?.rawText || raw).trim();
+        const jinaToken = String(req.body?.jinaToken || JINA_TOKEN || '').trim();
         if (!raw) return res.status(400).json({ error: '缺少 URL' });
         if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)
             && /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/|$)/i.test(raw)) {
@@ -436,14 +437,14 @@ async function handler(req, res) {
         // Step 1: 抓 HTML
         let fetchResult;
         try { fetchResult = await fetchHtml(u.toString()); } catch (e) {
-            const jinaFb = await tryJinaReader(u.toString(), rawText);
+            const jinaFb = await tryJinaReader(u.toString(), rawText, jinaToken);
             return await sendPreview(isUsefulPreview(jinaFb, host) ? jinaFb : fallbackPreview(u.toString(), '抓取超时'), u.toString());
         }
         let { finalUrl, html } = fetchResult;
 
         // Step 2: 追 HTML 内 redirect
         if (!html && !isXhsHost(host)) {
-            const jinaFb = await tryJinaReader(finalUrl, rawText);
+            const jinaFb = await tryJinaReader(finalUrl, rawText, jinaToken);
             return await sendPreview(isUsefulPreview(jinaFb, new URL(finalUrl).hostname)
                 ? jinaFb : fallbackPreview(finalUrl, `远程返回 ${fetchResult.resp?.status}`), finalUrl);
         }
@@ -470,7 +471,7 @@ async function handler(req, res) {
             if (xhsData && isUsefulPreview(xhsData, finalHost)) {
                 return await sendPreview({ ...xhsData, url: xhsData.url || finalUrl }, finalUrl);
             }
-            const jinaXhs = await tryJinaReader(finalUrl, rawText);
+            const jinaXhs = await tryJinaReader(finalUrl, rawText, jinaToken);
             if (isUsefulPreview(jinaXhs, finalHost)) return await sendPreview(jinaXhs, finalUrl);
             const sharedXhs = cleanSharedText(rawText);
             const reason = looksBlocked ? '小红书反爬拦截，建议配置 Jina Token'
@@ -492,7 +493,7 @@ async function handler(req, res) {
             if (douyinData && isUsefulPreview(douyinData, finalHost)) {
                 return await sendPreview(douyinData, finalUrl);
             }
-            const jinaDouyin = await tryJinaReader(finalUrl, rawText);
+            const jinaDouyin = await tryJinaReader(finalUrl, rawText, jinaToken);
             if (isUsefulPreview(jinaDouyin, finalHost)) {
                 return await sendPreview({ ...jinaDouyin, siteName: '抖音' }, finalUrl);
             }
@@ -508,7 +509,7 @@ async function handler(req, res) {
             if (wechatData && isUsefulPreview(wechatData, finalHost)) {
                 return await sendPreview(wechatData, finalUrl);
             }
-            const jinaWechat = await tryJinaReader(finalUrl, rawText);
+            const jinaWechat = await tryJinaReader(finalUrl, rawText, jinaToken);
             if (isUsefulPreview(jinaWechat, finalHost)) {
                 return await sendPreview({ ...jinaWechat, siteName: '微信公众号' }, finalUrl);
             }
@@ -533,7 +534,7 @@ async function handler(req, res) {
         }
 
         // Step 5: OG 没内容 → Jina
-        const jinaFinal = await tryJinaReader(finalUrl, rawText);
+        const jinaFinal = await tryJinaReader(finalUrl, rawText, jinaToken);
         if (isUsefulPreview(jinaFinal, finalHost)) return await sendPreview(jinaFinal, finalUrl);
 
         // Step 6: 兜底

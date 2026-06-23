@@ -1,6 +1,7 @@
 // 前端：扫消息里的 URL，调 plugin /link-preview，把 URL 原地替换为 [link|...] token
 // 详见 ./PLAN_v8.md §2.1 §2.2
 
+import { getSettings } from './config.js';
 import { jsonRequestHeaders } from './request-headers.js';
 
 const PREVIEW_URL = '/api/plugins/carrot/link-preview';
@@ -75,7 +76,11 @@ async function fetchPreview(url, rawText) {
         const res = await fetch(PREVIEW_URL, {
             method: 'POST',
             headers: jsonRequestHeaders(),
-            body: JSON.stringify({ url, rawText }),
+            body: JSON.stringify({
+                url,
+                rawText,
+                jinaToken: getSettings().linkParse?.jinaToken || '',
+            }),
             signal: ctrl.signal,
         });
         if (!res.ok) {

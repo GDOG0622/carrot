@@ -135,38 +135,6 @@
     opacity: 1;
     transform: scale(1);
 }
-#cip-panel-tabs {
-    display: flex;
-    padding: 8px;
-    border-bottom: 1px solid var(--cip-border-color);
-    background-color: var(--cip-tabs-bg-color); /* 应用变量 */
-    transition: background-color var(--cip-transition-speed) ease;
-}
-.cip-tab-button {
-    flex-grow: 1;
-    padding: 8px 12px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: var(--cip-text-color);
-    border-radius: 8px;
-    transition:
-        background-color var(--cip-transition-speed) ease,
-        color var(--cip-transition-speed) ease;
-}
-.cip-tab-button.active {
-    background-color: var(--cip-active-bg-color);
-    font-weight: bold;
-}
-#cip-format-display {
-    padding: 5px 12px;
-    font-size: 12px;
-    color: #666;
-    background: rgba(0, 0, 0, 0.05);
-    text-align: center;
-    min-height: 18px;
-}
 #cip-panel-content {
     padding: 12px;
     flex-grow: 1;
@@ -228,6 +196,12 @@
     position: relative;
     width: 100%;
     display: flex;
+}
+.cip-main-input-wrapper.hidden,
+.cip-wallet-fields.hidden,
+#cip-expression-popover.hidden,
+#cip-sticker-grid.hidden {
+    display: none !important;
 }
 .cip-main-input-wrapper #cip-main-input {
     width: 100%; /* 确保文本域填满容器 */
@@ -366,11 +340,49 @@
     background-color: var(--cip-tabs-bg-color); /* 应用变量 */
 }
 emoji-picker {
-    position: fixed;
     z-index: 1002;
     display: none;
     max-width: calc(100vw - 20px);
     max-height: calc(100vh - 20px);
+}
+#cip-expression-popover {
+    position: fixed;
+    z-index: 1002;
+    width: 360px;
+    max-width: calc(100vw - 20px);
+    padding: 10px;
+    box-sizing: border-box;
+}
+#cip-expression-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--cip-border-color);
+    overflow-x: auto;
+}
+.cip-expression-categories {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.cip-expression-tab {
+    min-width: 30px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--cip-text-color);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.cip-expression-tab.active,
+#cip-expression-tabs .cip-sticker-category-btn.active {
+    background-color: var(--cip-accent-color);
+    border-color: var(--cip-accent-color);
+    color: #fff;
 }
 @media (max-width: 768px) {
     emoji-picker {
