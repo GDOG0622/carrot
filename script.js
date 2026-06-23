@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.11';
+    const V = 'v=8.0.12';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -118,7 +118,7 @@
         initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
         // v8.0: 安装 send hook，拦截发送时解析链接
         initSendHook();
-        // v8.1: 安装语音输入按钮逻辑
+        // 安装语音输入按钮逻辑
         initVoiceInput();
     } else {
         console.error(
@@ -426,7 +426,8 @@
         stickerData = {},
         stickerLookup = new Map(),
         currentStickerCategory = '',
-        expressionMode = 'emoji';
+        expressionMode = 'emoji',
+        pendingImageFile = null;
     const formatTemplates = {
         text: {
             plain: '“{content}”',
@@ -565,6 +566,13 @@
               o.dispatchEvent(new Event('input', { bubbles: !0 })),
               o.focus())
             : alert('未能找到SillyTavern的输入框！');
+    }
+    function escapeInlineHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     }
     function positionExpressionPopover() {
         const btnRect = emojiPickerBtn.getBoundingClientRect();
@@ -709,29 +717,28 @@
         insertIntoSillyTavern(formatTemplates.recall),
     );
 
+    function setPendingImageFile(file) {
+        pendingImageFile = file || null;
+        if (!imageUploadButton) return;
+        if (pendingImageFile) {
+            const name = pendingImageFile.name || '已选择图片';
+            imageUploadButton.innerHTML = `<i class="fa-solid fa-image"></i><span>${escapeInlineHtml(name)}</span>`;
+            imageUploadButton.title = name;
+        } else {
+            imageUploadButton.innerHTML = '<i class="fa-solid fa-image"></i><span>导入图片</span>';
+            imageUploadButton.removeAttribute('title');
+        }
+    }
+
     imageUploadButton?.addEventListener('click', () => {
         imageUploadInput.value = '';
         imageUploadInput.click();
     });
 
-    imageUploadInput?.addEventListener('change', async () => {
+    imageUploadInput?.addEventListener('change', () => {
         const file = imageUploadInput.files?.[0];
         if (!file) return;
-        const prevText = imageUploadButton.innerHTML;
-        imageUploadButton.disabled = true;
-        imageUploadButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>上传中</span>';
-        try {
-            const src = await uploadCarrotImage(file);
-            insertIntoSillyTavern(buildCarrotImageToken(src, mainInput.value));
-            mainInput.value = '';
-            if (typeof toastr !== 'undefined') toastr.success('图片已插入酒馆输入框', 'carrot');
-        } catch (error) {
-            if (typeof toastr !== 'undefined') toastr.error(error?.message || String(error), '图片上传失败');
-            else alert(error?.message || String(error));
-        } finally {
-            imageUploadButton.disabled = false;
-            imageUploadButton.innerHTML = prevText;
-        }
+        setPendingImageFile(file);
     });
 
     // v8.0: BUNNY 按钮（原 bunny 子按钮的功能搬到 footer）
@@ -767,6 +774,30 @@
                     ].replace('{content}', mainInput.value);
                     inputToClear = mainInput;
                 }
+                break;
+            case 'image':
+                if (pendingImageFile) {
+                    imageUploadButton.disabled = true;
+                    const prevText = imageUploadButton.innerHTML;
+                    imageUploadButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>上传中</span>';
+                    uploadCarrotImage(pendingImageFile)
+                        .then((src) => {
+                            insertIntoSillyTavern(buildCarrotImageToken(src, mainInput.value));
+                            mainInput.value = '';
+                            setPendingImageFile(null);
+                            if (typeof toastr !== 'undefined') toastr.success('图片已插入酒馆输入框', 'carrot');
+                        })
+                        .catch((error) => {
+                            imageUploadButton.innerHTML = prevText;
+                            if (typeof toastr !== 'undefined') toastr.error(error?.message || String(error), '图片上传失败');
+                            else alert(error?.message || String(error));
+                        })
+                        .finally(() => {
+                            imageUploadButton.disabled = false;
+                        });
+                    return;
+                }
+                if (typeof toastr !== 'undefined') toastr.info('请先导入图片', 'carrot');
                 break;
             case 'wallet': {
                 const platform = walletPlatformInput.value.trim();

@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const MAX_FILES = 80;
+const MAX_FILES = 10;
 const MAX_BYTES = 12 * 1024 * 1024;
 
 function ensureDir() {

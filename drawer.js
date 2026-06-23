@@ -801,6 +801,7 @@ export function injectExtensionDrawer({
                         <div class="cip-ext-sync-btns">
                             <button id="cip-api-check-btn" class="menu_button">重新检测</button>
                             <button id="cip-api-guide-btn" class="menu_button">重开引导</button>
+                            <button id="cip-api-clear-cache-btn" class="menu_button" title="清除浏览器 Cache Storage 并带缓存戳刷新当前页面">清缓存</button>
                             <button id="cip-api-sync-btn" class="menu_button" style="display:none;" title="把新版 carrot/plugin 同步到酒馆 plugins/carrot">同步后端</button>
                             <button id="cip-api-restart-btn" class="menu_button" style="display:none;" title="先同步后端，再由 pm2/systemd 自动拉起">同步并重启</button>
                         </div>
@@ -822,9 +823,9 @@ export function injectExtensionDrawer({
                         <button id="cip-api-link-reenable" class="menu_button" style="display:none;">重新启用链接解析</button>
                     </details>
 
-                    <!-- 语音 STT（v8.0 预留，v8.1 启用） -->
+                    <!-- 语音 STT -->
                     <details class="cip-ext-field">
-                        <summary><b>语音 STT</b> <small style="color:#888;">v8.1 启用</small></summary>
+                        <summary><b>语音 STT</b></summary>
                         <div class="cip-ext-field">
                             <small>硅基流动 Key（推荐，国内可直连）</small>
                             <input type="password" id="cip-api-asr-silicon" class="text_pole" placeholder="sk-...">
@@ -844,11 +845,6 @@ export function injectExtensionDrawer({
                         </details>
                     </details>
 
-                    <!-- 图片视觉（v8.2 预留） -->
-                    <details class="cip-ext-field">
-                        <summary><b>图片视觉</b> <small style="color:#888;">v8.2 启用</small></summary>
-                        <p style="font-size:.9em;color:#888;">敬请期待。</p>
-                    </details>
                 </div>
             </div>
         </div>
@@ -1261,6 +1257,7 @@ async function initApiPane() {
     const statusText = document.getElementById('cip-api-status-text');
     const checkBtn = document.getElementById('cip-api-check-btn');
     const guideBtn = document.getElementById('cip-api-guide-btn');
+    const clearCacheBtn = document.getElementById('cip-api-clear-cache-btn');
     const syncBtn = document.getElementById('cip-api-sync-btn');
     const restartBtn = document.getElementById('cip-api-restart-btn');
     const runtimeInfo = document.getElementById('cip-api-runtime');
@@ -1301,7 +1298,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.11';
+            const FE_VERSION = '8.0.12';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，建议点击「同步后端」</span>`;
             }
@@ -1329,6 +1326,27 @@ async function initApiPane() {
 
     guideBtn?.addEventListener('click', () => {
         showGuideModal();
+    });
+
+    clearCacheBtn?.addEventListener('click', async () => {
+        clearCacheBtn.disabled = true;
+        const prevText = clearCacheBtn.textContent;
+        clearCacheBtn.textContent = '清理中…';
+        try {
+            if (window.caches?.keys) {
+                const keys = await caches.keys();
+                await Promise.all(keys.map((key) => caches.delete(key)));
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('carrot_cache_bust', String(Date.now()));
+            window.location.replace(url.toString());
+        } catch (e) {
+            if (typeof toastr !== 'undefined') toastr.warning('已尝试清缓存，请手动刷新页面', 'carrot');
+            window.location.reload();
+        } finally {
+            clearCacheBtn.disabled = false;
+            clearCacheBtn.textContent = prevText;
+        }
     });
 
     syncBtn?.addEventListener('click', async () => {

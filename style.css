@@ -257,6 +257,12 @@
     cursor: wait;
     opacity: 0.7;
 }
+.cip-image-upload-button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 #cip-voice-duration,
 #cip-new-category-name {
     width: calc(100% - 20px);

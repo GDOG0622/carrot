@@ -148,6 +148,18 @@ function buildToken(preview, originalUrl, beforeText = '', afterText = '') {
     return lines.join('\n');
 }
 
+function getSameLineContext(text, start, end) {
+    const lineStart = text.lastIndexOf('\n', Math.max(0, start - 1)) + 1;
+    const nextBreak = text.indexOf('\n', end);
+    const lineEnd = nextBreak === -1 ? text.length : nextBreak;
+    return {
+        before: text.slice(lineStart, start),
+        after: text.slice(end, lineEnd),
+        lineStart,
+        lineEnd,
+    };
+}
+
 /**
  * 解析文本里所有 URL 并替换为 token。
  * 返回 { text: 新文本, total, success, failed, errors: [...] }
@@ -180,8 +192,10 @@ export async function parseAndReplace(text) {
     // 单链接分享文案：把前文/后文一起收进 <link>，避免普通文本漏在外面。
     if (results.length === 1 && results[0].preview && !results[0].error) {
         const r = results[0];
+        const ctx = getSameLineContext(text, r.start, r.end);
+        const token = buildToken(r.preview, r.url, ctx.before, ctx.after);
         return {
-            text: buildToken(r.preview, r.url, text.slice(0, r.start), text.slice(r.end)),
+            text: text.slice(0, ctx.lineStart) + token + text.slice(ctx.lineEnd),
             total: 1,
             success: 1,
             failed: 0,
