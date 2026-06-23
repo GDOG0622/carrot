@@ -124,6 +124,76 @@
 - 本地缓存 + 重试机制
 - 需配置 Unsplash Access Key
 
+### 链接卡片（v8.0 新增，需后端）
+
+- 在消息里贴 URL，发送时自动解析为带封面/标题/简介的卡片
+- 支持微信公众号、小红书、抖音特化解析；其它站点走 OG 抓取
+- 封面图后端代理下载，规避 CDN 防盗链
+- 单 URL 超时 15s，整条消息总 30s，最多并行 5 个
+- 代码块 ` ``` ` 里的 URL 不解析
+- 仅在用户消息渲染为卡片，AI 看到的是 `[link|标题|简介|封面URL]原URL[/link]` 结构化 token
+
+---
+
+## 启用后端（v8.0+）
+
+链接解析、封面缓存等功能需要一个 **SillyTavern 服务器插件**。安装一次即可。
+
+### 一键启用
+
+1. 打开酒馆扩展目录里的 `carrot/plugin/install/` 文件夹
+2. 双击运行对应脚本：
+   - **Windows**：`install.cmd`（需右键以管理员身份运行 —— 创建软链需要权限）
+   - **Linux / Mac / Termux**：`bash install.sh`
+3. 脚本会自动完成：
+   - 定位酒馆根目录（扫常见路径 + 当前位置）
+   - 把 `config.yaml` 的 `enableServerPlugins` 改为 `true`
+   - 建立软链 `<酒馆根>/plugins/carrot → <扩展目录>/carrot/plugin`
+4. **重启酒馆服务器进程**：
+   - ⚠️ 这里指**关掉跑 `node server.js` 的命令行黑窗口重新启动**，不是按 F5 刷新网页！
+   - pm2 用户：`pm2 restart sillytavern`
+   - systemd 用户：`sudo systemctl restart sillytavern`
+   - Termux 用户：Ctrl+C 停掉 → 重新跑 `node server.js`
+5. 重启后回到酒馆，carrot 设置面板的「API」标签会显示绿色「已启用」
+
+### 手动启用（脚本失败时）
+
+1. 编辑 `<酒馆根>/config.yaml`，找到或添加：
+   ```yaml
+   enableServerPlugins: true
+   ```
+2. 创建软链或复制目录：
+   ```sh
+   # Linux/Mac/Termux
+   ln -s /path/to/SillyTavern/data/<user>/extensions/carrot/plugin \
+         /path/to/SillyTavern/plugins/carrot
+
+   # Windows（cmd，管理员）
+   mklink /D "C:\SillyTavern\plugins\carrot" "C:\SillyTavern\data\default-user\extensions\carrot\plugin"
+   ```
+3. 重启酒馆服务器进程
+
+### 不想启用后端
+
+仍然可以使用 carrot 的所有其它功能。链接解析会自动跳过，URL 原样发送。
+若关闭后想再启用，到设置 → 🥕 胡萝卜面板 → API → 「重开引导」即可。
+
+---
+
+## 卸载后端
+
+1. 打开 `carrot/plugin/install/` 文件夹
+2. 运行对应脚本：
+   - **Windows**：`uninstall.cmd`
+   - **Linux / Mac / Termux**：`bash uninstall.sh`
+3. 脚本会：
+   - 删除软链 `<酒馆根>/plugins/carrot`
+   - 删除封面缓存目录
+   - 询问是否把 `enableServerPlugins` 改回 `false`（若你还有其它 plugin 在用，选 N）
+4. 重启酒馆服务器进程生效
+
+完全卸载 carrot 扩展请通过酒馆扩展管理器移除。
+
 ---
 
 ## 项目结构
@@ -131,18 +201,25 @@
 ```
 carrot/
 ├── manifest.json          # 扩展清单
-├── script.js              # 主逻辑（面板 UI、消息处理、扩展面板注入）
-├── regex.js               # 内置正则替换引擎
-├── engine.js              # 正则适配器
-├── style.css              # 样式表
-├── service-worker.js      # 通知 Service Worker
-├── timer-worker.js        # 定时器 Web Worker
-└── setting/
-    ├── index.js           # 设置模块入口
-    ├── theme.js           # 主题管理
-    ├── avatar.js          # 头像 & 头像框
-    ├── alarm.js           # 定时指令
-    └── sync.js            # 设置导入/导出
+├── script.js              # 主入口（动态导入各模块）
+├── ui.js                  # 面板 DOM 构建
+├── drawer.js              # 扩展设置面板（含 v8.0 API 折叠区）
+├── config.js              # 设置存储 / 迁移
+├── format-renderer.js     # 消息渲染（含 v8.0 链接卡片）
+├── backend.js             # v8.0 后端 plugin 探测 + 引导面板
+├── send-hook.js           # v8.0 拦截发送，调链接解析
+├── link-parser.js         # v8.0 URL 提取 + 调 plugin /link-preview
+├── stickers.js            # 表情包逻辑
+├── unsplash.js            # Unsplash 配图
+├── selects.js             # 渲染辅助
+├── style.css              # 样式
+├── setting/               # 子模块（主题 / 头像）
+└── plugin/                # v8.0 后端（SillyTavern server plugin）
+    ├── index.js           # plugin 入口（注册 /api/plugins/carrot/*）
+    ├── manifest.json
+    ├── link-preview.js    # 链接解析（OG/微信/小红书/抖音 + Jina 兜底）
+    ├── cover-cache.js     # 封面下载 + LRU + 静态服务
+    └── install/           # 安装/卸载脚本（Win/Linux/Mac/Termux）
 ```
 
 ---

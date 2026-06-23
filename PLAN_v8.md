@@ -370,7 +370,7 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 | 8 | 前端：`format-renderer.js` 加 `[link\|...]` token 渲染规则 | `format-renderer.js`、`link-parser.js`、`style.css` | 看渲染卡片 | ✅ |
 | 9 | 前端：删 post/bunny 子按钮 + footer 加 robot 图标 | `ui.js`、`script.js`、`style.css` | 看面板 | ✅ |
 | 10 | 前端：齿轮 API 折叠区（语音预留 + 链接解析状态 + 视觉预留） | `drawer.js`、`config.js` | 看设置面板 | ✅ |
-| 11 | 更新 README.md，加「启用后端」+「卸载」两节 | `README.md` | 阅读 | |
+| 11 | 更新 README.md，加「启用后端」+「卸载」两节 | `README.md` | 阅读 | ✅ |
 | 12 | 改 manifest.json version → 8.0；打 tag v8.0 | `manifest.json` | git tag | |
 
 ---
