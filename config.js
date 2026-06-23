@@ -44,6 +44,7 @@ const DEFAULT_SETTINGS = {
     linkParse: {
         disabled: false,   // 用户主动跳过 → 不再弹引导，不再做链接解析
         jinaToken: '',
+        attachCoverImage: true,
     },
     // v8.1 预留：语音 STT
     asr: {

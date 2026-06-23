@@ -815,6 +815,10 @@ export function injectExtensionDrawer({
                             <small>Jina Reader Key（可选，小红书/反爬兜底）</small>
                             <input type="password" id="cip-api-jina-token" class="text_pole" placeholder="jina_...">
                         </div>
+                        <label class="checkbox_label" style="display:flex;gap:.5em;align-items:center;margin:.5em 0;">
+                            <input type="checkbox" id="cip-api-link-cover-vision">
+                            <span>把链接封面作为图片发给视觉模型</span>
+                        </label>
                         <button id="cip-api-link-reenable" class="menu_button" style="display:none;">重新启用链接解析</button>
                     </details>
 
@@ -1263,6 +1267,7 @@ async function initApiPane() {
     const linkStatus = document.getElementById('cip-api-link-status');
     const linkReenableBtn = document.getElementById('cip-api-link-reenable');
     const jinaToken = document.getElementById('cip-api-jina-token');
+    const linkCoverVision = document.getElementById('cip-api-link-cover-vision');
     const asrSilicon = document.getElementById('cip-api-asr-silicon');
     const asrGroq = document.getElementById('cip-api-asr-groq');
 
@@ -1296,7 +1301,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.8';
+            const FE_VERSION = '8.0.9';
             const major = (v) => String(v).split('.').slice(0, 2).join('.');
             if (major(st.version) !== major(FE_VERSION)) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议点击「同步后端」</span>`;
@@ -1391,6 +1396,16 @@ async function initApiPane() {
         jinaToken.addEventListener('input', () => {
             s.linkParse = s.linkParse || {};
             s.linkParse.jinaToken = jinaToken.value.trim();
+            saveSettings();
+        });
+    }
+
+    if (linkCoverVision) {
+        s.linkParse = s.linkParse || {};
+        linkCoverVision.checked = s.linkParse.attachCoverImage !== false;
+        linkCoverVision.addEventListener('change', () => {
+            s.linkParse = s.linkParse || {};
+            s.linkParse.attachCoverImage = !!linkCoverVision.checked;
             saveSettings();
         });
     }
