@@ -131,7 +131,7 @@ export async function parseAndReplace(text) {
         results = await Promise.all(tasks);
     } finally { clearTimeout(totalTimer); }
 
-    // 从后往前替换，避免位置偏移
+    // 从后往前替换，避免位置偏移；token 强制独占一行（渲染层按行匹配卡片）
     let newText = text;
     let success = 0;
     let failed = 0;
@@ -140,7 +140,9 @@ export async function parseAndReplace(text) {
         const r = results[i];
         if (r.preview && !r.error) {
             const token = buildToken(r.preview, r.url);
-            newText = newText.slice(0, r.start) + token + newText.slice(r.end);
+            const before = r.start > 0 && newText[r.start - 1] !== '\n' ? '\n' : '';
+            const after = r.end < newText.length && newText[r.end] !== '\n' ? '\n' : '';
+            newText = newText.slice(0, r.start) + before + token + after + newText.slice(r.end);
             success++;
         } else {
             failed++;

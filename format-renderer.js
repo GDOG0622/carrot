@@ -411,6 +411,58 @@ function createRecallLine(documentRef, token) {
     return outer;
 }
 
+function createLinkCard(documentRef, token) {
+    // 把 sanitize 时换成全角的 ｜ 还原显示（仅显示用）
+    const restore = (s) => String(s || '').replace(/｜/g, '|');
+    const card = documentRef.createElement('a');
+    card.className = 'carrot-link-card';
+    card.href = token.url;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+
+    if (token.cover) {
+        const img = documentRef.createElement('img');
+        img.className = 'carrot-link-card__cover';
+        img.src = token.cover;
+        img.alt = '';
+        img.loading = 'lazy';
+        img.addEventListener('error', () => {
+            img.classList.add('carrot-link-card__cover--failed');
+            img.removeAttribute('src');
+        });
+        card.appendChild(img);
+    } else {
+        const ph = documentRef.createElement('div');
+        ph.className = 'carrot-link-card__cover carrot-link-card__cover--failed';
+        card.appendChild(ph);
+    }
+
+    const body = documentRef.createElement('div');
+    body.className = 'carrot-link-card__body';
+
+    const title = documentRef.createElement('div');
+    title.className = 'carrot-link-card__title';
+    title.textContent = restore(token.title) || '链接';
+    body.appendChild(title);
+
+    if (token.description) {
+        const desc = documentRef.createElement('div');
+        desc.className = 'carrot-link-card__desc';
+        desc.textContent = restore(token.description);
+        body.appendChild(desc);
+    }
+
+    const site = documentRef.createElement('div');
+    site.className = 'carrot-link-card__site';
+    let host = '';
+    try { host = new URL(token.url).hostname; } catch {}
+    site.textContent = `🌐 ${host || '链接'}`;
+    body.appendChild(site);
+
+    card.appendChild(body);
+    return card;
+}
+
 function createTextLine(documentRef, token) {
     const line = documentRef.createElement('div');
     line.className = 'carrot-render-text-line';
@@ -459,6 +511,21 @@ function parseVoiceBlock(lines, startIndex) {
 }
 
 function parseLine(line, isUser) {
+    // v8.0 链接卡片：[link|title|desc|cover]url[/link]
+    // 仅在用户消息里渲染（AI 不会输出这个 token）
+    if (isUser) {
+        const link = line.match(/^\s*\[link\|([^|]*)\|([^|]*)\|([^\]]*)\](https?:\/\/[^\s\[]+)\[\/link\]\s*$/);
+        if (link) {
+            return {
+                type: 'linkCard',
+                title: link[1].trim(),
+                description: link[2].trim(),
+                cover: link[3].trim(),
+                url: link[4].trim(),
+            };
+        }
+    }
+
     const timestamp = line.match(/^\s*『([\s\S]*?)\s+\|\s*([\s\S]*?)』\s*$/);
     if (timestamp) {
         return {
@@ -590,6 +657,8 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             rendered.appendChild(createSystemLine(documentRef, token));
         } else if (token.type === 'recall') {
             rendered.appendChild(createRecallLine(documentRef, token));
+        } else if (token.type === 'linkCard') {
+            rendered.appendChild(createLinkCard(documentRef, token));
         } else {
             rendered.appendChild(createTextLine(documentRef, token));
         }
