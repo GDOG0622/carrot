@@ -2,24 +2,26 @@
 (async function () {
     if (document.getElementById('cip-carrot-button')) return;
 
+    // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
+    const V = 'v=8.0.0';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
         getSettings,
         migrateFromLocalStorage,
         saveSettings,
-    } = await import('./config.js');
-    const { createUI } = await import('./ui.js');
-    const { injectExtensionDrawer } = await import('./drawer.js');
+    } = await import(`./config.js?${V}`);
+    const { createUI } = await import(`./ui.js?${V}`);
+    const { injectExtensionDrawer } = await import(`./drawer.js?${V}`);
     const {
         buildStickerLookup,
         replaceStickerPlaceholders: replaceStickerPlaceholdersCore,
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
-    } = await import('./stickers.js');
-    const { createUnsplashProcessor } = await import('./unsplash.js');
-    const { initFormatRenderer } = await import('./format-renderer.js?v=20260514-inner-force-1');
-    const { initBackend } = await import('./backend.js');
-    const { initSendHook } = await import('./send-hook.js');
+    } = await import(`./stickers.js?${V}`);
+    const { createUnsplashProcessor } = await import(`./unsplash.js?${V}`);
+    const { initFormatRenderer } = await import(`./format-renderer.js?${V}`);
+    const { initBackend } = await import(`./backend.js?${V}`);
+    const { initSendHook } = await import(`./send-hook.js?${V}`);
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
