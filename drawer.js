@@ -1310,7 +1310,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.17';
+            const FE_VERSION = '8.0.18';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
