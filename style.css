@@ -221,6 +221,42 @@
     resize: vertical;
     transition: background-color var(--cip-transition-speed) ease;
 }
+#cip-main-input.cip-main-input-one-line {
+    min-height: 42px;
+    height: 42px;
+    resize: none;
+    overflow-y: hidden;
+}
+#cip-image-upload-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+#cip-image-upload-row.hidden {
+    display: none !important;
+}
+.cip-image-upload-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 38px;
+    border: none;
+    border-radius: var(--cip-border-radius);
+    background: var(--cip-active-bg-color);
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    transition: opacity var(--cip-transition-speed), transform var(--cip-transition-speed);
+}
+.cip-image-upload-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+.cip-image-upload-button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
 #cip-voice-duration,
 #cip-new-category-name {
     width: calc(100% - 20px);
@@ -1951,9 +1987,47 @@ emoji-picker {
     color: rgba(255, 255, 255, 0.5);
     margin-top: 4px;
 }
+.carrot-image-line {
+    display: flex;
+    width: 100%;
+    margin: 6px 0;
+}
+.carrot-image-line-user {
+    justify-content: flex-end;
+}
+.carrot-image-line-char {
+    justify-content: flex-start;
+}
+.carrot-image-card {
+    display: block;
+    max-width: min(260px, 78%);
+    max-height: 320px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.carrot-image-card--failed {
+    display: none;
+}
+.carrot-image-fallback {
+    display: none;
+    place-items: center;
+    width: 120px;
+    height: 72px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+}
+.carrot-image-fallback.active {
+    display: grid;
+}
 @media (max-width: 480px) {
     .carrot-link-card { padding: 8px; gap: 8px; }
     .carrot-link-card__cover { flex-basis: 52px; width: 52px; height: 52px; }
     .carrot-link-card__title { font-size: 12px; }
     .carrot-link-card__desc { font-size: 10px; }
+    .carrot-image-card { max-width: min(220px, 82%); max-height: 280px; }
 }

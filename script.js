@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.10';
+    const V = 'v=8.0.11';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -24,6 +24,7 @@
     const { initSendHook } = await import(`./send-hook.js?${V}`);
     const { initVoiceInput } = await import(`./voice-input.js?${V}`);
     const { initLinkVision } = await import(`./link-vision.js?${V}`);
+    const { buildCarrotImageToken, uploadCarrotImage } = await import(`./image-upload.js?${V}`);
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -132,6 +133,9 @@
     const insertButton = get('cip-insert-button'),
         recallButton = get('cip-recall-button');
     const mainInput = get('cip-main-input');
+    const imageUploadRow = get('cip-image-upload-row');
+    const imageUploadInput = get('cip-image-upload-input');
+    const imageUploadButton = get('cip-image-upload-button');
     const walletContent = get('cip-wallet-content');
     const walletPlatformInput = get('cip-wallet-platform');
     const walletAmountInput = get('cip-wallet-amount');
@@ -439,7 +443,7 @@
 
     const textPlaceholderMap = {
         plain: '在此输入文字...',
-        image: '在此输入文字...',
+        image: '图片描述或备注（可不填）',
         video: '在此输入文字...',
         music: '在此输入文字...',
         wallet: '填写钱包信息...',
@@ -480,6 +484,8 @@
             ),
             mainInput.parentElement.classList.toggle('hidden', t === 'wallet'),
             walletContent?.classList.toggle('hidden', t !== 'wallet'),
+            imageUploadRow?.classList.toggle('hidden', t !== 'image'),
+            mainInput.classList.toggle('cip-main-input-one-line', t === 'image'),
             (mainInput.placeholder =
                 textPlaceholderMap[t] || '在此输入文字...'),
             updateFormatDisplay());
@@ -703,6 +709,31 @@
         insertIntoSillyTavern(formatTemplates.recall),
     );
 
+    imageUploadButton?.addEventListener('click', () => {
+        imageUploadInput.value = '';
+        imageUploadInput.click();
+    });
+
+    imageUploadInput?.addEventListener('change', async () => {
+        const file = imageUploadInput.files?.[0];
+        if (!file) return;
+        const prevText = imageUploadButton.innerHTML;
+        imageUploadButton.disabled = true;
+        imageUploadButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>上传中</span>';
+        try {
+            const src = await uploadCarrotImage(file);
+            insertIntoSillyTavern(buildCarrotImageToken(src, mainInput.value));
+            mainInput.value = '';
+            if (typeof toastr !== 'undefined') toastr.success('图片已插入酒馆输入框', 'carrot');
+        } catch (error) {
+            if (typeof toastr !== 'undefined') toastr.error(error?.message || String(error), '图片上传失败');
+            else alert(error?.message || String(error));
+        } finally {
+            imageUploadButton.disabled = false;
+            imageUploadButton.innerHTML = prevText;
+        }
+    });
+
     // v8.0: BUNNY 按钮（原 bunny 子按钮的功能搬到 footer）
     if (bunnyButton) {
         bunnyButton.addEventListener('click', () => {
@@ -728,7 +759,6 @@
 
         switch (currentTextSubType) {
             case 'plain':
-            case 'image':
             case 'video':
             case 'music':
                 if (mainInput.value.trim()) {

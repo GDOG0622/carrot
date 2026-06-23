@@ -72,7 +72,7 @@ function findSourcePluginDir() {
 function copyDirContents(source, dest) {
     fs.mkdirSync(dest, { recursive: true });
     for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-        if (entry.name === 'covers') continue;
+        if (entry.name === 'covers' || entry.name === 'uploads') continue;
         const from = path.join(source, entry.name);
         const to = path.join(dest, entry.name);
         if (entry.isDirectory()) {
@@ -164,6 +164,11 @@ async function init(router) {
 
     // 封面静态服务
     router.get('/covers/:filename', require('./cover-cache').serve);
+
+    // carrot 图片上传与静态服务
+    const uploadCache = require('./upload-cache');
+    router.post('/uploads', express.raw({ type: 'image/*', limit: '12mb' }), uploadCache.upload);
+    router.get('/uploads/:filename', uploadCache.serve);
 
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot；运行环境 ${runtime.manager || '裸 node'}`);
     console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，可在 carrot API 面板点击“同步后端”`);

@@ -1,6 +1,7 @@
 import { getSettings } from './config.js';
 
 const LINK_BLOCK_RE = /<link\b([^>]*)>[\s\S]*?<\/link>/gi;
+const CARROT_IMAGE_RE = /<carrot-image\b([^>]*)>[\s\S]*?<\/carrot-image>/gi;
 const MAX_IMAGES_PER_MESSAGE = 3;
 const MAX_IMAGE_SIDE = 1280;
 const JPEG_QUALITY = 0.86;
@@ -25,11 +26,16 @@ function parseAttrs(attrText) {
 function extractCoverUrls(text) {
     const covers = [];
     LINK_BLOCK_RE.lastIndex = 0;
+    CARROT_IMAGE_RE.lastIndex = 0;
     let m;
     while ((m = LINK_BLOCK_RE.exec(String(text || ''))) !== null) {
         const cover = parseAttrs(m[1]).cover;
         if (cover && !covers.includes(cover)) covers.push(cover);
         if (covers.length >= MAX_IMAGES_PER_MESSAGE) break;
+    }
+    while (covers.length < MAX_IMAGES_PER_MESSAGE && (m = CARROT_IMAGE_RE.exec(String(text || ''))) !== null) {
+        const src = parseAttrs(m[1]).src;
+        if (src && !covers.includes(src)) covers.push(src);
     }
     return covers;
 }
@@ -52,7 +58,7 @@ function normalizeCoverUrl(url) {
     try {
         const parsed = new URL(url, window.location.origin);
         if (parsed.origin !== window.location.origin) return '';
-        if (!parsed.pathname.startsWith('/api/plugins/carrot/covers/')) return '';
+        if (!/^\/api\/plugins\/carrot\/(covers|uploads)\//.test(parsed.pathname)) return '';
         return parsed.href;
     } catch (error) {
         return '';
@@ -130,7 +136,7 @@ async function attachCoversToMessage(message) {
             });
             added++;
         } catch (error) {
-            console.warn('Carrot: link cover image attach skipped', cover, error);
+            console.warn('Carrot: image attach skipped', cover, error);
         }
     }
     if (added) attachedMessages.add(message);
@@ -148,7 +154,7 @@ async function handlePromptReady(eventData) {
         added += await attachCoversToMessage(message);
     }
     if (added) {
-        console.info(`Carrot: attached ${added} link cover image(s) for multimodal prompt`);
+        console.info(`Carrot: attached ${added} image(s) for multimodal prompt`);
     }
 }
 

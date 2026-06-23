@@ -20,6 +20,13 @@ export function createUI() {
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>
+                <div id="cip-image-upload-row" class="hidden">
+                    <input type="file" id="cip-image-upload-input" accept="image/*" hidden>
+                    <button id="cip-image-upload-button" class="cip-image-upload-button" type="button">
+                        <i class="fa-solid fa-image"></i>
+                        <span>导入图片</span>
+                    </button>
+                </div>
                 <div id="cip-wallet-content" class="cip-wallet-fields hidden"><div class="cip-wallet-row"><input type="text" id="cip-wallet-platform" placeholder="平台名称"><input type="text" id="cip-wallet-amount" placeholder="金额/车牌号"></div><div class="cip-wallet-row"><input type="text" id="cip-wallet-message" placeholder="留言/物品名称"></div></div>
             </div>
         </div>

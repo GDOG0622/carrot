@@ -467,6 +467,29 @@ function createLinkCard(documentRef, token, side = 'user') {
     return wrap;
 }
 
+function createCarrotImage(documentRef, token, side = 'user') {
+    const wrap = documentRef.createElement('div');
+    wrap.className = `carrot-image-line carrot-image-line-${side}`;
+
+    const img = documentRef.createElement('img');
+    img.className = 'carrot-image-card';
+    img.src = token.src;
+    img.alt = '';
+    img.loading = 'lazy';
+
+    const fallback = documentRef.createElement('div');
+    fallback.className = 'carrot-image-fallback';
+    fallback.textContent = '图片加载失败';
+
+    img.addEventListener('error', () => {
+        img.classList.add('carrot-image-card--failed');
+        fallback.classList.add('active');
+    });
+
+    wrap.append(img, fallback);
+    return wrap;
+}
+
 function decodeAttr(value) {
     return String(value || '')
         .replace(/&quot;/g, '"')
@@ -573,6 +596,20 @@ function parseLinkBlock(lines, startIndex, isUser) {
 }
 
 function parseLine(line, isUser) {
+    if (isUser) {
+        const carrotImage = line.match(/^\s*<carrot-image\b([^>]*)>([\s\S]*?)<\/carrot-image>\s*$/i);
+        if (carrotImage) {
+            const attrs = parseAttrs(carrotImage[1]);
+            if (attrs.src) {
+                return {
+                    type: 'carrotImage',
+                    src: attrs.src,
+                    note: carrotImage[2].trim(),
+                };
+            }
+        }
+    }
+
     // v8.0 旧链接卡片：[link|title|desc|cover]url[/link]（兼容历史消息）
     // 仅在用户消息里渲染（AI 不会输出这个 token）
     if (isUser) {
@@ -729,6 +766,8 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             rendered.appendChild(createRecallLine(documentRef, token));
         } else if (token.type === 'linkCard') {
             rendered.appendChild(createLinkCard(documentRef, token, side));
+        } else if (token.type === 'carrotImage') {
+            rendered.appendChild(createCarrotImage(documentRef, token, side));
         } else {
             rendered.appendChild(createTextLine(documentRef, token));
         }
