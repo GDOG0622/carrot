@@ -109,12 +109,27 @@ if errorlevel 1 (
 )
 
 echo.
+echo ============================================================
 echo === 安装完成 ===
+echo ============================================================
 echo.
-echo 下一步：重启酒馆服务器
-echo   注意：是关掉跑 node 的命令行窗口重新启动，
-echo        不是按 F5 刷新网页！
+echo *** 下一步：重启酒馆服务器进程 ***
 echo.
-echo 重启完成后回到 carrot 设置面板，状态会自动变成「已启用」
+echo 检测你的酒馆是怎么启动的：
+where pm2 >nul 2>&1
+if not errorlevel 1 (
+    echo   - 看起来装了 pm2：执行  pm2 restart sillytavern  ^(或对应进程名^)
+    echo     首次安装后 pm2 重启即可；以后 carrot 升级可在设置里点"重启后端"一键完成。
+    echo.
+)
+echo   - 如果用 Start.bat 双击启动：
+echo       1) 找到正在跑 node 的黑窗口，关闭它
+echo       2) 重新双击 Start.bat
 echo.
+echo   - 如果直接 node server.js：Ctrl+C 停掉，重新执行
+echo.
+echo ⚠ 重启 = 关闭并重启 node 进程，不是按 F5 刷新网页！
+echo.
+echo 重启完成后回到 carrot 设置面板，「API」标签会显示绿色「已启用」
+echo ============================================================
 pause

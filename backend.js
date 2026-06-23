@@ -12,6 +12,7 @@ const state = {
     lastError: '',
     pollTimer: null,
     modal: null,             // 引导面板 DOM
+    runtime: { managed: false, manager: null },  // 进程是否受 pm2/systemd 管
 };
 
 export function isBackendReady() {
@@ -20,6 +21,30 @@ export function isBackendReady() {
 
 export function getBackendStatus() {
     return { ...state, modal: undefined, pollTimer: undefined };
+}
+
+/**
+ * 调 plugin 触发自身退出，由 pm2/systemd 自动拉起。
+ * 仅 state.runtime.managed === true 时调用才有意义。
+ */
+export async function requestBackendRestart() {
+    try {
+        const res = await fetch('/api/plugins/carrot/restart', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        return await res.json();
+    } catch (e) {
+        // plugin 进程 exit 后这个请求会断开（fetch reject），属于预期行为
+        if (/Failed to fetch|NetworkError|connection|aborted/i.test(String(e?.message))) {
+            return { ok: true, disconnected: true };
+        }
+        throw e;
+    }
 }
 
 export async function pingBackend() {
@@ -34,6 +59,7 @@ export async function pingBackend() {
             state.ready = true;
             state.version = data.version || '';
             state.lastError = '';
+            if (data.runtime) state.runtime = data.runtime;
             return true;
         }
         throw new Error('ping 返回非 ok');

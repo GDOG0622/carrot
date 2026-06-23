@@ -372,6 +372,9 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 | 10 | 前端：齿轮 API 折叠区（语音预留 + 链接解析状态 + 视觉预留） | `drawer.js`、`config.js` | 看设置面板 | ✅ |
 | 11 | 更新 README.md，加「启用后端」+「卸载」两节 | `README.md` | 阅读 | ✅ |
 | 12 | 改 manifest.json version → 8.0；打 tag v8.0 | `manifest.json` | git tag | ✅ |
+| 13 | plugin 加 /restart + 进程管理器检测（pm2/systemd） | `plugin/index.js`、`backend.js` | 在 pm2 环境下点重启按钮 | ✅ |
+| 14 | 齿轮加"重启后端"按钮（仅 managed 环境显示） | `drawer.js` | 看 UI | ✅ |
+| 15 | install 脚本输出根据环境检测的重启指引 | `plugin/install/install.{cmd,sh}` | 跑脚本看输出 | ✅ |
 
 ---
 

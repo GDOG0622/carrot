@@ -103,13 +103,38 @@ echo "[步骤] 建立软链 $LINK -> $SRC_PLUGIN"
 ln -s "$SRC_PLUGIN" "$LINK"
 
 echo
+echo "============================================================"
 echo "=== 安装完成 ==="
+echo "============================================================"
 echo
-echo "下一步：重启酒馆服务器"
-echo "  注意：是 kill 掉 node 进程重新启动，不是按 F5 刷新网页！"
-echo "  pm2 用户：pm2 restart sillytavern"
-echo "  systemd 用户：sudo systemctl restart sillytavern"
-echo "  Termux 用户：Ctrl+C 停掉，重新跑 node server.js"
+echo "*** 下一步：重启酒馆服务器进程 ***"
 echo
-echo "重启完成后回到 carrot 设置面板，状态会自动变成「已启用」"
+echo "检测你的酒馆是怎么启动的："
+
+DETECTED=""
+if command -v pm2 >/dev/null 2>&1 && pm2 list 2>/dev/null | grep -qi sillytavern; then
+    DETECTED="pm2"
+    echo "  ✓ 检测到 pm2 在管 sillytavern 进程"
+    echo "    执行：pm2 restart sillytavern"
+    echo "    首次安装后手动执行一次；以后 carrot 升级可在设置「重启后端」一键完成。"
+elif systemctl list-units --type=service 2>/dev/null | grep -qi sillytavern; then
+    DETECTED="systemd"
+    echo "  ✓ 检测到 systemd 在管 sillytavern 服务"
+    echo "    执行：sudo systemctl restart sillytavern"
+fi
+
+if [ -z "$DETECTED" ]; then
+    if [ "$IS_TERMUX" = "1" ]; then
+        echo "  - Termux 环境：在跑 node server.js 的会话里 Ctrl+C，然后重新执行"
+    else
+        echo "  - 裸 node：在跑 node 的终端 Ctrl+C，重新执行 node server.js"
+        echo "  - 建议改用 pm2 管理：npm install -g pm2 && pm2 start server.js --name sillytavern"
+        echo "    （改用 pm2 后，以后 carrot 升级可在设置里点「重启后端」一键完成）"
+    fi
+fi
+echo
+echo "⚠ 重启 = 关闭并重启 node 进程，不是按 F5 刷新网页！"
+echo
+echo "重启完成后回到 carrot 设置面板，「API」标签会显示绿色「已启用」"
+echo "============================================================"
 echo

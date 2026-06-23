@@ -801,7 +801,9 @@ export function injectExtensionDrawer({
                         <div class="cip-ext-sync-btns">
                             <button id="cip-api-check-btn" class="menu_button">重新检测</button>
                             <button id="cip-api-guide-btn" class="menu_button">重开引导</button>
+                            <button id="cip-api-restart-btn" class="menu_button" style="display:none;" title="酒馆进程退出后由 pm2/systemd 自动拉起">重启后端</button>
                         </div>
+                        <div id="cip-api-runtime" style="margin-top:.4em;color:#888;font-size:.85em;"></div>
                     </div>
 
                     <!-- 链接解析 -->
@@ -1242,7 +1244,7 @@ function bindSyncPane() {
 }
 
 async function initApiPane() {
-    const { pingBackend, isBackendReady, showGuideModal, getBackendStatus } = await import('./backend.js');
+    const { pingBackend, isBackendReady, showGuideModal, getBackendStatus, requestBackendRestart } = await import('./backend.js');
     const s = getSettings();
     s.asr = s.asr || {};
 
@@ -1250,6 +1252,8 @@ async function initApiPane() {
     const statusText = document.getElementById('cip-api-status-text');
     const checkBtn = document.getElementById('cip-api-check-btn');
     const guideBtn = document.getElementById('cip-api-guide-btn');
+    const restartBtn = document.getElementById('cip-api-restart-btn');
+    const runtimeInfo = document.getElementById('cip-api-runtime');
     const linkStatus = document.getElementById('cip-api-link-status');
     const linkReenableBtn = document.getElementById('cip-api-link-reenable');
     const asrSilicon = document.getElementById('cip-api-asr-silicon');
@@ -1262,6 +1266,21 @@ async function initApiPane() {
         statusText.textContent = ready
             ? `已启用（plugin v${st.version || '?'}）`
             : '未启用';
+
+        // 进程管理器：受管才显示"重启"按钮
+        if (ready && st.runtime?.managed) {
+            restartBtn.style.display = '';
+            runtimeInfo.textContent = `运行环境：${st.runtime.manager}（可一键重启）`;
+        } else if (ready) {
+            restartBtn.style.display = 'none';
+            const tag = st.runtime?.manager === 'docker-unknown'
+                ? 'docker（未知 restart policy）'
+                : '裸 node';
+            runtimeInfo.textContent = `运行环境：${tag}（重启需手动 —— 关闭并重新启动 node 进程）`;
+        } else {
+            restartBtn.style.display = 'none';
+            runtimeInfo.textContent = '';
+        }
         // 链接解析子节状态
         const linkDisabled = !!(s.linkParse && s.linkParse.disabled);
         if (linkDisabled) {
@@ -1285,6 +1304,40 @@ async function initApiPane() {
 
     guideBtn?.addEventListener('click', () => {
         showGuideModal();
+    });
+
+    restartBtn?.addEventListener('click', async () => {
+        if (!confirm('将让酒馆 node 进程退出，由 pm2/systemd 自动拉起。\n约 5-15 秒后页面会重新连上。继续？')) return;
+        restartBtn.disabled = true;
+        const prevText = restartBtn.textContent;
+        restartBtn.textContent = '重启中…';
+        try {
+            await requestBackendRestart();
+            statusDot.textContent = '⏳';
+            statusText.textContent = '后端已退出，等待自动拉起…';
+            // 每秒 ping 一次，最长等 30s
+            let attempts = 0;
+            const timer = setInterval(async () => {
+                attempts++;
+                const ok = await pingBackend();
+                if (ok) {
+                    clearInterval(timer);
+                    refreshStatus();
+                    if (typeof toastr !== 'undefined') toastr.success('后端已恢复', 'carrot');
+                    restartBtn.disabled = false;
+                    restartBtn.textContent = prevText;
+                } else if (attempts >= 30) {
+                    clearInterval(timer);
+                    statusText.textContent = '超过 30s 未拉起，请手动检查 pm2/systemd';
+                    restartBtn.disabled = false;
+                    restartBtn.textContent = prevText;
+                }
+            }, 1000);
+        } catch (e) {
+            if (typeof toastr !== 'undefined') toastr.error(e?.message || String(e), '重启失败');
+            restartBtn.disabled = false;
+            restartBtn.textContent = prevText;
+        }
     });
 
     linkReenableBtn?.addEventListener('click', () => {
