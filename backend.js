@@ -2,6 +2,7 @@
 // 详见 ./PLAN_v8.md §2.1 §3
 
 import { getSettings, saveSettings } from './config.js';
+import { jsonRequestHeaders } from './request-headers.js';
 
 const PING_URL = '/api/plugins/carrot/ping';
 const POLL_INTERVAL_MS = 3000;
@@ -31,7 +32,7 @@ export async function requestBackendRestart() {
     try {
         const res = await fetch('/api/plugins/carrot/restart', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonRequestHeaders(),
         });
         if (!res.ok) {
             const data = await res.json().catch(() => ({}));
