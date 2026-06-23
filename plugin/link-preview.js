@@ -17,11 +17,13 @@ const isBlockedHost = (hostname) => {
 const isXhsHost = (h) => /(^|\.)xhslink\.com$|(^|\.)xiaohongshu\.com$|(^|\.)xhscdn\.com$/i.test(h || '');
 const isDouyinHost = (h) => /(^|\.)douyin\.com$|(^|\.)iesdouyin\.com$|(^|\.)douyinpic\.com$|(^|\.)amemv\.com$/i.test(h || '');
 const isWechatHost = (h) => /(^|\.)mp\.weixin\.qq\.com$|(^|\.)weixin\.qq\.com$/i.test(h || '');
+const isWeiboHost = (h) => /(^|\.)weibo\.com$|(^|\.)m\.weibo\.cn$|(^|\.)sinaimg\.cn$/i.test(h || '');
 
 const inferSiteName = (hostname) => {
     if (isXhsHost(hostname)) return '小红书';
     if (isDouyinHost(hostname)) return '抖音';
     if (isWechatHost(hostname)) return '微信公众号';
+    if (isWeiboHost(hostname)) return '微博';
     return hostname || '链接';
 };
 
@@ -31,6 +33,10 @@ const isGenericPreviewText = (text, hostname) => {
     if (isXhsHost(hostname)) {
         return /^(小红书|小红书 - 你的生活指南|小红书 - 标记我的生活|xiaohongshu|xhs)$/i.test(value)
             || /登录|访问链接异常|正在跳转|安全验证|验证码/.test(value);
+    }
+    if (isWeiboHost(hostname)) {
+        return /^(微博|微博正文 - 微博|新浪微博)$/i.test(value)
+            || /Sina Visitor System|登录|注册|访问异常|验证码/.test(value);
     }
     return false;
 };
@@ -125,6 +131,93 @@ const parseDouyinFromHtml = (html, baseUrl, rawText) => {
     };
 };
 
+const extractDouyinAwemeId = (html, baseUrl) => {
+    try {
+        const u = new URL(baseUrl);
+        const pathId = u.pathname.match(/\/(?:video|note)\/(\d+)/)?.[1];
+        if (pathId) return pathId;
+        const modalId = u.searchParams.get('modal_id') || u.searchParams.get('aweme_id');
+        if (modalId) return modalId;
+    } catch {}
+    const match = String(html || '').match(/(?:aweme_id|modal_id|video_id|itemId)["']?\s*[:=]\s*["']?(\d{10,})/);
+    return match?.[1] || '';
+};
+
+const normalizeGenericComments = (list, limit = 15) => {
+    const out = [];
+    const push = (item, parentNickname = '') => {
+        if (!item || out.length >= limit) return;
+        const user = item.user || {};
+        const nickname = String(user.nickname || user.screen_name || user.name || item.screen_name || '').trim();
+        const content = htmlToPlainText(item.text || item.text_raw || item.content || item.reply_comment?.text || '').trim();
+        const ipLocation = String(item.ip_label || item.ipLocation || item.source || '').replace(/^来自/, '').trim();
+        const likeCount = item.digg_count ?? item.like_count ?? item.likeCount ?? item.attitudes_count ?? '';
+        if (!content && !nickname) return;
+        out.push({ nickname, content, ipLocation, likeCount, parentNickname });
+    };
+    for (const item of Array.isArray(list) ? list : []) {
+        push(item);
+        const replies = item.reply_comment ? [item.reply_comment] : [];
+        for (const reply of replies) push(reply, item.user?.nickname || item.user?.screen_name || '');
+        if (out.length >= limit) break;
+    }
+    return out;
+};
+
+const fetchDouyinComments = async (awemeId) => {
+    if (!awemeId) return [];
+    try {
+        const r = await fetch(`https://www.iesdouyin.com/web/api/v2/comment/list/?aweme_id=${encodeURIComponent(awemeId)}&count=20&cursor=0`, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+                'Accept': 'application/json,text/plain,*/*',
+                'Referer': 'https://www.douyin.com/',
+            },
+        });
+        if (!r.ok) return [];
+        const data = await r.json().catch(() => null);
+        return normalizeGenericComments(data?.comments || [], 15);
+    } catch {
+        return [];
+    }
+};
+
+const extractWeiboId = (url) => {
+    try {
+        const u = new URL(url);
+        return u.pathname.match(/\/(\d{10,})\/?$/)?.[1]
+            || u.pathname.match(/\/detail\/(\d{10,})/)?.[1]
+            || u.searchParams.get('id')
+            || '';
+    } catch { return ''; }
+};
+
+const fetchWeiboComments = async (weiboId) => {
+    if (!weiboId) return [];
+    const urls = [
+        `https://m.weibo.cn/comments/hotflow?id=${encodeURIComponent(weiboId)}&mid=${encodeURIComponent(weiboId)}&max_id_type=0`,
+        `https://weibo.com/ajax/statuses/buildComments?is_reload=1&id=${encodeURIComponent(weiboId)}&is_show_bulletin=2&is_mix=0&count=20`,
+    ];
+    for (const url of urls) {
+        try {
+            const r = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+                    'Accept': 'application/json,text/plain,*/*',
+                    'Referer': 'https://m.weibo.cn/',
+                    ...(process.env.CARROT_WEIBO_COOKIE ? { Cookie: process.env.CARROT_WEIBO_COOKIE } : {}),
+                },
+            });
+            const ctype = r.headers.get('content-type') || '';
+            if (!r.ok || !/json/i.test(ctype)) continue;
+            const data = await r.json().catch(() => null);
+            const comments = normalizeGenericComments(data?.data?.data || data?.data || [], 15);
+            if (comments.length) return comments;
+        } catch {}
+    }
+    return [];
+};
+
 const parseWechatFromHtml = (html, baseUrl) => {
     const og = parseOgFromHtml(html, baseUrl);
     const author = findMetaContent(html, 'author') || findWechatVar(html, 'nickname') || findWechatVar(html, 'profile_nickname');
@@ -188,7 +281,7 @@ const normalizeXhsComments = (commentData) => {
     const list = Array.isArray(commentData?.comments) ? commentData.comments : [];
     const out = [];
     const pushComment = (item, parentNickname = '') => {
-        if (!item || out.length >= 10) return;
+        if (!item || out.length >= 15) return;
         const user = item.user || {};
         const nickname = String(user.nickname || user.nickName || '').trim();
         const content = String(item.content || '').trim()
@@ -208,12 +301,12 @@ const normalizeXhsComments = (commentData) => {
     };
 
     for (const item of list) {
-        if (out.length >= 10) break;
+        if (out.length >= 15) break;
         const parentName = String(item?.user?.nickname || item?.user?.nickName || '').trim();
         pushComment(item);
         const subs = Array.isArray(item?.subComments) ? item.subComments : [];
         for (const sub of subs) {
-            if (out.length >= 10) break;
+            if (out.length >= 15) break;
             pushComment(sub, parentName);
         }
     }
@@ -324,7 +417,9 @@ const extractHtmlRedirect = (html) => {
 // ───────────── Jina Reader 兜底 ─────────────
 const trimMarkdownNoise = (text) => String(text || '')
     .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/\[\]\([^)]+\)/g, '')
     .replace(/\[[^\]]+]\([^)]+\)/g, '$1')
+    .replace(/\$1/g, ' ')
     .replace(/[>*_`~|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -463,6 +558,7 @@ async function handler(req, res) {
 
         const finalHost = (() => { try { return new URL(finalUrl).hostname; } catch { return host; } })();
         if (isBlockedHost(finalHost)) return res.status(400).json({ error: '禁止访问内网地址' });
+        const isWeiboRequest = isWeiboHost(host) || isWeiboHost(finalHost);
 
         // Step 3: 小红书特化
         if (isXhsHost(finalHost)) {
@@ -487,23 +583,58 @@ async function handler(req, res) {
             }, finalUrl);
         }
 
-        // Step 3b: 抖音特化
+        // Step 3b: 微博特化。微博常跳 visitor，必须在通用 OG 前处理。
+        if (isWeiboRequest) {
+            const weiboComments = await fetchWeiboComments(extractWeiboId(u.toString()) || extractWeiboId(finalUrl));
+            const jinaWeibo = await tryJinaReader(u.toString(), rawText, jinaToken);
+            if (isUsefulPreview(jinaWeibo, host)) {
+                return await sendPreview({ ...jinaWeibo, siteName: '微博', comments: weiboComments }, u.toString());
+            }
+            if (html && !/Sina Visitor System|visitor\.passport\.weibo\.cn/i.test(html + finalUrl)) {
+                const og = parseOgFromHtml(html, finalUrl);
+                if (og.description || og.image || (og.title && !isGenericPreviewText(og.title, host))) {
+                    return await sendPreview({
+                        url: finalUrl,
+                        title: og.title || '微博',
+                        description: og.description || '',
+                        image: og.image || '',
+                        comments: weiboComments,
+                        siteName: '微博',
+                        source: 'weibo-og',
+                    }, finalUrl);
+                }
+            }
+            const sharedWeibo = cleanSharedText(rawText);
+            return await sendPreview({
+                url: u.toString(),
+                title: sharedWeibo || '微博',
+                description: '',
+                image: '',
+                comments: weiboComments,
+                siteName: '微博',
+                source: 'weibo-limited',
+                limitedReason: weiboComments.length ? '' : '微博未登录访问受限，评论可能需要 Cookie',
+            }, u.toString());
+        }
+
+        // Step 3c: 抖音特化
         if (isDouyinHost(finalHost)) {
             const douyinData = html ? parseDouyinFromHtml(html, finalUrl, rawText) : null;
+            const douyinComments = await fetchDouyinComments(extractDouyinAwemeId(html, finalUrl));
             if (douyinData && isUsefulPreview(douyinData, finalHost)) {
-                return await sendPreview(douyinData, finalUrl);
+                return await sendPreview({ ...douyinData, comments: douyinComments }, finalUrl);
             }
             const jinaDouyin = await tryJinaReader(finalUrl, rawText, jinaToken);
             if (isUsefulPreview(jinaDouyin, finalHost)) {
-                return await sendPreview({ ...jinaDouyin, siteName: '抖音' }, finalUrl);
+                return await sendPreview({ ...jinaDouyin, siteName: '抖音', comments: douyinComments }, finalUrl);
             }
             const sharedDouyin = cleanSharedText(rawText);
             if (sharedDouyin) {
-                return await sendPreview({ url: finalUrl, title: sharedDouyin, description: sharedDouyin, image: '', siteName: '抖音', source: 'douyin-shared-text' }, finalUrl);
+                return await sendPreview({ url: finalUrl, title: sharedDouyin, description: sharedDouyin, image: '', comments: douyinComments, siteName: '抖音', source: 'douyin-shared-text' }, finalUrl);
             }
         }
 
-        // Step 3c: 微信公众号特化
+        // Step 3d: 微信公众号特化
         if (isWechatHost(finalHost)) {
             const wechatData = html ? parseWechatFromHtml(html, finalUrl) : null;
             if (wechatData && isUsefulPreview(wechatData, finalHost)) {

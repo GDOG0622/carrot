@@ -440,6 +440,13 @@ function createLinkCard(documentRef, token) {
     const body = documentRef.createElement('div');
     body.className = 'carrot-link-card__body';
 
+    if (token.before) {
+        const before = documentRef.createElement('div');
+        before.className = 'carrot-link-card__context';
+        before.textContent = restore(token.before);
+        body.appendChild(before);
+    }
+
     const title = documentRef.createElement('div');
     title.className = 'carrot-link-card__title';
     title.textContent = restore(token.title) || '链接';
@@ -452,6 +459,20 @@ function createLinkCard(documentRef, token) {
         body.appendChild(desc);
     }
 
+    if (token.imageText) {
+        const imageText = documentRef.createElement('div');
+        imageText.className = 'carrot-link-card__image-code';
+        imageText.textContent = restore(token.imageText);
+        body.appendChild(imageText);
+    }
+
+    if (token.after) {
+        const after = documentRef.createElement('div');
+        after.className = 'carrot-link-card__context';
+        after.textContent = restore(token.after);
+        body.appendChild(after);
+    }
+
     const site = documentRef.createElement('div');
     site.className = 'carrot-link-card__site';
     let host = '';
@@ -461,6 +482,23 @@ function createLinkCard(documentRef, token) {
 
     card.appendChild(body);
     return card;
+}
+
+function decodeAttr(value) {
+    return String(value || '')
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&');
+}
+
+function parseAttrs(raw) {
+    const attrs = {};
+    String(raw || '').replace(/([a-zA-Z][\w-]*)="([^"]*)"/g, (_, key, value) => {
+        attrs[key] = decodeAttr(value);
+        return '';
+    });
+    return attrs;
 }
 
 function createTextLine(documentRef, token) {
@@ -510,8 +548,49 @@ function parseVoiceBlock(lines, startIndex) {
     return null;
 }
 
+function parseLinkBlock(lines, startIndex, isUser) {
+    if (!isUser) return null;
+    const first = lines[startIndex];
+    const open = first.match(/^\s*<link\b([^>]*)>\s*$/i);
+    if (!open) return null;
+    const bodyLines = [];
+    let endIndex = startIndex + 1;
+    for (; endIndex < lines.length; endIndex += 1) {
+        if (/^\s*<\/link>\s*$/i.test(lines[endIndex])) break;
+        bodyLines.push(lines[endIndex]);
+    }
+    if (endIndex >= lines.length) return null;
+    const attrs = parseAttrs(open[1]);
+    const firstPipe = bodyLines.findIndex(line => line.trim().startsWith('|'));
+    if (firstPipe < 0) return null;
+    const secondPipeRel = bodyLines.slice(firstPipe + 1).findIndex(line => line.trim().startsWith('|'));
+    const secondPipe = secondPipeRel >= 0 ? firstPipe + 1 + secondPipeRel : -1;
+    const before = bodyLines.slice(0, firstPipe).join('\n').trim();
+    const title = bodyLines[firstPipe].replace(/^\s*\|/, '').trim();
+    const description = (secondPipe >= 0
+        ? bodyLines.slice(firstPipe + 1, secondPipe)
+        : bodyLines.slice(firstPipe + 1))
+        .join('\n')
+        .trim();
+    const imageText = secondPipe >= 0 ? bodyLines[secondPipe].replace(/^\s*\|/, '').trim() : '';
+    const after = secondPipe >= 0 ? bodyLines.slice(secondPipe + 1).join('\n').trim() : '';
+    return {
+        token: {
+            type: 'linkCard',
+            title,
+            description,
+            cover: attrs.cover || '',
+            url: attrs.href || attrs.url || '',
+            before,
+            after,
+            imageText,
+        },
+        endIndex,
+    };
+}
+
 function parseLine(line, isUser) {
-    // v8.0 链接卡片：[link|title|desc|cover]url[/link]
+    // v8.0 旧链接卡片：[link|title|desc|cover]url[/link]（兼容历史消息）
     // 仅在用户消息里渲染（AI 不会输出这个 token）
     if (isUser) {
         const link = line.match(/^\s*\[link\|([^|]*)\|([^|]*)\|([^\]]*)\](https?:\/\/[^\s\[]+)\[\/link\]\s*$/);
@@ -598,6 +677,14 @@ function parseTokens(text, isUser) {
 
     for (let i = 0; i < lines.length; i += 1) {
         if (/^\s*$/.test(lines[i])) continue;
+
+        const linkBlock = parseLinkBlock(lines, i, isUser);
+        if (linkBlock) {
+            tokens.push(linkBlock.token);
+            i = linkBlock.endIndex;
+            changed = true;
+            continue;
+        }
 
         const voice = parseVoiceBlock(lines, i);
         if (voice) {

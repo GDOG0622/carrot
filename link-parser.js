@@ -1,4 +1,4 @@
-// 前端：扫消息里的 URL，调 plugin /link-preview，把 URL 原地替换为 [link|...] token
+// 前端：扫消息里的 URL，调 plugin /link-preview，把分享文本整理为 <link>...</link>
 // 详见 ./PLAN_v8.md §2.1 §2.2
 
 import { getSettings } from './config.js';
@@ -29,7 +29,11 @@ function buildSkipRanges(text) {
         skips.push([m.index, m.index + m[0].length]);
     }
 
-    // 已经是 [link|...]URL[/link] 的 token
+    // 已经是 <link>...</link> 或旧 [link|...]URL[/link] 的 token
+    const linkBlocks = /<link\b[\s\S]*?<\/link>/gi;
+    while ((m = linkBlocks.exec(text)) !== null) {
+        skips.push([m.index, m.index + m[0].length]);
+    }
     const tokens = /\[link\|[^\]]*\]https?:\/\/[^\s<>]+\[\/link\]/gi;
     while ((m = tokens.exec(text)) !== null) {
         skips.push([m.index, m.index + m[0].length]);
@@ -91,34 +95,57 @@ async function fetchPreview(url, rawText) {
     } finally { clearTimeout(timer); }
 }
 
-// 把 token 的 |/]/[ 等敏感字符替换或截断
-function sanitizeField(value, maxLen) {
+// 把结构块里的危险字符清理或截断
+function sanitizeField(value, maxLen = 2000) {
     return String(value || '')
-        .replace(/[\r\n]+/g, ' ')
-        .replace(/\|/g, '｜')
-        .replace(/[\[\]]/g, '')
+        .replace(/<\/?link\b[^>]*>/gi, '')
         .trim()
         .slice(0, maxLen);
 }
 
-function buildToken(preview, originalUrl) {
-    const title = sanitizeField(preview.title || preview.siteName || '链接', 100);
-    const comments = Array.isArray(preview.comments) ? preview.comments.slice(0, 5) : [];
-    const commentText = comments.map((item, index) => {
-        const parent = item.parentNickname ? `回复${item.parentNickname} ` : '';
-        const name = item.nickname ? `${item.nickname}: ` : '';
-        const ip = item.ipLocation ? `(${item.ipLocation})` : '';
-        const likes = item.likeCount !== '' && item.likeCount !== undefined ? ` 赞${item.likeCount}` : '';
-        return `${index + 1}. ${parent}${name}${item.content || ''}${ip}${likes}`;
-    }).filter(Boolean).join(' / ');
-    const descSource = [
-        preview.description || '',
-        commentText ? `评论前${comments.length}条: ${commentText}` : '',
-    ].filter(Boolean).join(' ｜ ');
-    const desc = sanitizeField(descSource, 800);
-    // cover 优先用 plugin 缓存的本地路径 imageLocal
-    const cover = sanitizeField(preview.imageLocal || preview.image || '', 500);
-    return `[link|${title}|${desc}|${cover}]${originalUrl}[/link]`;
+function escapeAttr(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function formatComment(item, index) {
+    const parent = item.parentNickname ? `回复${item.parentNickname} ` : '';
+    const name = item.nickname ? `${item.nickname}: ` : '';
+    const ip = item.ipLocation ? `(${item.ipLocation})` : '';
+    const likes = item.likeCount !== '' && item.likeCount !== undefined ? ` 赞${item.likeCount}` : '';
+    return `${index + 1}. ${parent}${name}${item.content || ''}${ip}${likes}`;
+}
+
+function buildToken(preview, originalUrl, beforeText = '', afterText = '') {
+    const title = sanitizeField(preview.title || preview.siteName || '链接', 160);
+    const comments = Array.isArray(preview.comments) ? preview.comments.slice(0, 15) : [];
+    const commentLines = comments.map((item, index) => {
+        return sanitizeField(formatComment(item, index), 280);
+    }).filter(Boolean);
+    const descLines = [];
+    const description = sanitizeField(preview.description || '', 2400);
+    if (description) descLines.push(description);
+    if (commentLines.length) {
+        descLines.push(`评论前${commentLines.length}：`);
+        descLines.push(...commentLines);
+    }
+    const cover = sanitizeField(preview.imageLocal || preview.image || '', 600);
+    const finalUrl = sanitizeField(preview.url || originalUrl, 800);
+    const lines = [
+        `<link href="${escapeAttr(finalUrl)}" cover="${escapeAttr(cover)}" site="${escapeAttr(preview.siteName || '')}">`,
+    ];
+    const before = sanitizeField(beforeText, 1200);
+    const after = sanitizeField(afterText, 1200);
+    if (before) lines.push(before);
+    lines.push(`|${title}`);
+    if (descLines.length) lines.push(...descLines);
+    if (cover) lines.push(`|图片：${cover}`);
+    if (after) lines.push(after);
+    lines.push('</link>');
+    return lines.join('\n');
 }
 
 /**
@@ -150,7 +177,19 @@ export async function parseAndReplace(text) {
         results = await Promise.all(tasks);
     } finally { clearTimeout(totalTimer); }
 
-    // 从后往前替换，避免位置偏移；token 强制独占一行（渲染层按行匹配卡片）
+    // 单链接分享文案：把前文/后文一起收进 <link>，避免普通文本漏在外面。
+    if (results.length === 1 && results[0].preview && !results[0].error) {
+        const r = results[0];
+        return {
+            text: buildToken(r.preview, r.url, text.slice(0, r.start), text.slice(r.end)),
+            total: 1,
+            success: 1,
+            failed: 0,
+            errors: [],
+        };
+    }
+
+    // 多链接时从后往前替换，避免位置偏移；token 强制独占一行（渲染层按块匹配卡片）
     let newText = text;
     let success = 0;
     let failed = 0;
