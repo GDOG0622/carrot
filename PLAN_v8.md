@@ -356,20 +356,20 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 
 每完成一项 commit + push。
 
-| # | 任务 | 输出文件 | 验证方式 |
-|---|---|---|---|
-| 1 | **调研 ST plugin API**（不写代码） | 在本文档 §3.1 补充结论 | 看官方源码或社区示例 |
-| 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地手动建软链测试 ping 通 |
-| 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 |
-| 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `script.js`、新增 CSS | 模拟 plugin 不通时弹窗 |
-| 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview |
-| 6 | 写 `plugin/cover-cache.js`：封面下载 + LRU + `/covers/<id>` 静态服务 | `plugin/cover-cache.js` | 实测小红书/微信 URL |
-| 7 | 前端：hook send_but + Enter，URL 提取 + 调后端 + 原地替换 + loading | `script.js` | 在酒馆贴 URL 发送 |
-| 8 | 前端：`format-renderer.js` 加 `[link\|...]` token 渲染规则 | `format-renderer.js` | 看渲染卡片 |
-| 9 | 前端：删 post/bunny 子按钮 + footer 加 robot 图标 | `ui.js`、`script.js`、`style.css` | 看面板 |
-| 10 | 前端：齿轮 API 折叠区（语音预留 + 链接解析状态 + 视觉预留） | `drawer.js` | 看设置面板 |
-| 11 | 更新 README.md，加「启用后端」+「卸载」两节 | `README.md` | 阅读 |
-| 12 | 改 manifest.json version → 8.0；打 tag v8.0 | `manifest.json` | git tag |
+| # | 任务 | 输出文件 | 验证方式 | 状态 |
+|---|---|---|---|---|
+| 1 | **调研 ST plugin API**（不写代码） | 本文档 §3.1 补充结论 | 看官方源码或社区示例 | ✅ |
+| 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地手动建软链测试 ping 通 | ✅ |
+| 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 | ⏳ |
+| 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `script.js`、新增 CSS | 模拟 plugin 不通时弹窗 | |
+| 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview | |
+| 6 | 写 `plugin/cover-cache.js`：封面下载 + LRU + `/covers/<id>` 静态服务 | `plugin/cover-cache.js` | 实测小红书/微信 URL | |
+| 7 | 前端：hook send_but + Enter，URL 提取 + 调后端 + 原地替换 + loading | `script.js` | 在酒馆贴 URL 发送 | |
+| 8 | 前端：`format-renderer.js` 加 `[link\|...]` token 渲染规则 | `format-renderer.js` | 看渲染卡片 | |
+| 9 | 前端：删 post/bunny 子按钮 + footer 加 robot 图标 | `ui.js`、`script.js`、`style.css` | 看面板 | |
+| 10 | 前端：齿轮 API 折叠区（语音预留 + 链接解析状态 + 视觉预留） | `drawer.js` | 看设置面板 | |
+| 11 | 更新 README.md，加「启用后端」+「卸载」两节 | `README.md` | 阅读 | |
+| 12 | 改 manifest.json version → 8.0；打 tag v8.0 | `manifest.json` | git tag | |
 
 ---
 
