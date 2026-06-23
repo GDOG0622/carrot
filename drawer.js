@@ -654,6 +654,7 @@ export function injectExtensionDrawer({
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="prompt">提示</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="font">字体</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="sync">同步</button>
+                    <button class="cip-ext-nav-btn menu_button" data-cip-tab="api">API</button>
                 </div>
                 <div id="cip-ext-pane-main" class="cip-ext-pane">
                     <div class="cip-ext-checkboxes">
@@ -787,6 +788,56 @@ export function injectExtensionDrawer({
                         <button id="cip-ext-import-btn" class="menu_button">导入配置</button>
                     </div>
                     <div id="cip-ext-sync-status" class="cip-ext-status"></div>
+                </div>
+                <div id="cip-ext-pane-api" class="cip-ext-pane" style="display:none;">
+
+                    <!-- 后端状态 -->
+                    <div class="cip-ext-field">
+                        <small>后端 plugin 状态</small>
+                        <div id="cip-api-status" class="cip-ext-status">
+                            <span id="cip-api-status-dot">⏳</span>
+                            <span id="cip-api-status-text">检测中…</span>
+                        </div>
+                        <div class="cip-ext-sync-btns">
+                            <button id="cip-api-check-btn" class="menu_button">重新检测</button>
+                            <button id="cip-api-guide-btn" class="menu_button">重开引导</button>
+                        </div>
+                    </div>
+
+                    <!-- 链接解析 -->
+                    <details class="cip-ext-field" open>
+                        <summary><b>链接解析</b></summary>
+                        <div id="cip-api-link-status" style="margin:.5em 0;color:#888;font-size:.9em;"></div>
+                        <button id="cip-api-link-reenable" class="menu_button" style="display:none;">重新启用链接解析</button>
+                    </details>
+
+                    <!-- 语音 STT（v8.0 预留，v8.1 启用） -->
+                    <details class="cip-ext-field">
+                        <summary><b>语音 STT</b> <small style="color:#888;">v8.1 启用</small></summary>
+                        <div class="cip-ext-field">
+                            <small>硅基流动 Key（推荐，国内可直连）</small>
+                            <input type="password" id="cip-api-asr-silicon" class="text_pole" placeholder="sk-...">
+                        </div>
+                        <div class="cip-ext-field">
+                            <small>Groq Key（需要梯子）</small>
+                            <input type="password" id="cip-api-asr-groq" class="text_pole" placeholder="gsk_...">
+                        </div>
+                        <details>
+                            <summary>如何获取 Key</summary>
+                            <p style="font-size:.9em;line-height:1.5;">
+                                <b>硅基流动</b>：打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a>，
+                                用手机号注册，控制台 → API 密钥 → 新建。使用免费的 <code>FunAudioLLM/SenseVoiceSmall</code> 模型。<br>
+                                <b>Groq</b>：打开 <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>，
+                                用 Google/GitHub 登录，API Keys → Create。使用免费的 <code>whisper-large-v3-turbo</code>，速度极快。
+                            </p>
+                        </details>
+                    </details>
+
+                    <!-- 图片视觉（v8.2 预留） -->
+                    <details class="cip-ext-field">
+                        <summary><b>图片视觉</b> <small style="color:#888;">v8.2 启用</small></summary>
+                        <p style="font-size:.9em;color:#888;">敬请期待。</p>
+                    </details>
                 </div>
             </div>
         </div>
@@ -1185,4 +1236,86 @@ function bindSyncPane() {
         reader.readAsText(file);
         e.target.value = '';
     });
+
+    // ===== v8.0: API 面板 =====
+    initApiPane();
+}
+
+async function initApiPane() {
+    const { pingBackend, isBackendReady, showGuideModal, getBackendStatus } = await import('./backend.js');
+    const s = getSettings();
+    s.asr = s.asr || {};
+
+    const statusDot = document.getElementById('cip-api-status-dot');
+    const statusText = document.getElementById('cip-api-status-text');
+    const checkBtn = document.getElementById('cip-api-check-btn');
+    const guideBtn = document.getElementById('cip-api-guide-btn');
+    const linkStatus = document.getElementById('cip-api-link-status');
+    const linkReenableBtn = document.getElementById('cip-api-link-reenable');
+    const asrSilicon = document.getElementById('cip-api-asr-silicon');
+    const asrGroq = document.getElementById('cip-api-asr-groq');
+
+    function refreshStatus() {
+        const ready = isBackendReady();
+        const st = getBackendStatus();
+        statusDot.textContent = ready ? '✅' : '⏳';
+        statusText.textContent = ready
+            ? `已启用（plugin v${st.version || '?'}）`
+            : '未启用';
+        // 链接解析子节状态
+        const linkDisabled = !!(s.linkParse && s.linkParse.disabled);
+        if (linkDisabled) {
+            linkStatus.innerHTML = '<span style="color:#d33;">⚠ 你已主动关闭链接解析</span>';
+            linkReenableBtn.style.display = '';
+        } else if (!ready) {
+            linkStatus.innerHTML = '<span style="color:#d33;">⚠ 需要启用后端 plugin（见上方"重开引导"）</span>';
+            linkReenableBtn.style.display = 'none';
+        } else {
+            linkStatus.innerHTML = '<span style="color:#3a3;">✓ 链接解析已就绪</span>';
+            linkReenableBtn.style.display = 'none';
+        }
+    }
+
+    checkBtn?.addEventListener('click', async () => {
+        statusDot.textContent = '⏳';
+        statusText.textContent = '检测中…';
+        await pingBackend();
+        refreshStatus();
+    });
+
+    guideBtn?.addEventListener('click', () => {
+        showGuideModal();
+    });
+
+    linkReenableBtn?.addEventListener('click', () => {
+        s.linkParse = s.linkParse || {};
+        s.linkParse.disabled = false;
+        saveSettings();
+        refreshStatus();
+    });
+
+    if (asrSilicon) {
+        asrSilicon.value = s.asr.siliconflowKey || '';
+        asrSilicon.addEventListener('input', () => {
+            s.asr = s.asr || {};
+            s.asr.siliconflowKey = asrSilicon.value.trim();
+            saveSettings();
+        });
+    }
+    if (asrGroq) {
+        asrGroq.value = s.asr.groqKey || '';
+        asrGroq.addEventListener('input', () => {
+            s.asr = s.asr || {};
+            s.asr.groqKey = asrGroq.value.trim();
+            saveSettings();
+        });
+    }
+
+    // 初次刷新
+    refreshStatus();
+    // 启动时若 backend 还没 ping 过，自己 ping 一下
+    if (!isBackendReady()) {
+        await pingBackend();
+        refreshStatus();
+    }
 }
