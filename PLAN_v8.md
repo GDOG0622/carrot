@@ -360,8 +360,8 @@ echo "安装完成。请重启酒馆服务器（kill 掉 node 进程，重新启
 |---|---|---|---|---|
 | 1 | **调研 ST plugin API**（不写代码） | 本文档 §3.1 补充结论 | 看官方源码或社区示例 | ✅ |
 | 2 | 建 `plugin/manifest.json` + `plugin/index.js` 脚手架，含 `/ping` | `plugin/*` | 本地手动建软链测试 ping 通 | ✅ |
-| 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 | ⏳ |
-| 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `script.js`、新增 CSS | 模拟 plugin 不通时弹窗 | |
+| 3 | 写 `install.cmd` + `install.sh` + `uninstall.*` | `plugin/install/*` | 用户本地实测 | ✅ |
+| 4 | 前端：carrot 启动 ping + 引导面板（首次未启用时弹） | `script.js`、新增 CSS | 模拟 plugin 不通时弹窗 | ⏳ |
 | 5 | 写 `plugin/link-preview.js`：抄 BunnyOS link-preview，改 express → router | `plugin/link-preview.js` | postman 调 /link-preview | |
 | 6 | 写 `plugin/cover-cache.js`：封面下载 + LRU + `/covers/<id>` 静态服务 | `plugin/cover-cache.js` | 实测小红书/微信 URL | |
 | 7 | 前端：hook send_but + Enter，URL 提取 + 调后端 + 原地替换 + loading | `script.js` | 在酒馆贴 URL 发送 | |
