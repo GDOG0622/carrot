@@ -1,6 +1,6 @@
 {
   "id": "carrot",
   "name": "Carrot Backend",
-  "version": "8.0.0",
+  "version": "8.0.2",
   "description": "为 carrot 扩展提供链接解析、封面缓存等后端能力"
 }

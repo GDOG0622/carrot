@@ -1281,6 +1281,15 @@ async function initApiPane() {
             restartBtn.style.display = 'none';
             runtimeInfo.textContent = '';
         }
+
+        // 前后端版本一致性检查（v8.0.2+ 改为 copy 部署，升级后需重跑 install.sh）
+        if (ready && st.version) {
+            const FE_VERSION = '8.0.2';
+            const major = (v) => String(v).split('.').slice(0, 2).join('.');
+            if (major(st.version) !== major(FE_VERSION)) {
+                runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议重跑 install 脚本同步</span>`;
+            }
+        }
         // 链接解析子节状态
         const linkDisabled = !!(s.linkParse && s.linkParse.disabled);
         if (linkDisabled) {

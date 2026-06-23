@@ -60,15 +60,7 @@ echo [信息] 酒馆根目录: !ST_ROOT!
 REM 允许通过参数覆盖
 if not "%~1"=="" set "ST_ROOT=%~1"
 
-REM 4. 检查管理员权限（mklink 需要）
-net session >nul 2>&1
-if errorlevel 1 (
-    echo.
-    echo [错误] 创建软链需要管理员权限
-    echo        请右键以管理员身份运行本脚本
-    pause
-    exit /b 1
-)
+REM 4. （v8.0.2+ 不再用软链，无需管理员）
 
 REM 5. 改 config.yaml: enableServerPlugins true
 set "CONFIG=!ST_ROOT!\config.yaml"
@@ -85,25 +77,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM 6. 建软链 <ST_ROOT>\plugins\carrot -> !SRC_PLUGIN!
-set "LINK=!ST_ROOT!\plugins\carrot"
+REM 6. 复制 plugin 到 <ST_ROOT>\plugins\carrot（不再用软链，无需管理员权限）
+set "DEST=!ST_ROOT!\plugins\carrot"
 if not exist "!ST_ROOT!\plugins" mkdir "!ST_ROOT!\plugins"
 
-if exist "!LINK!" (
-    echo [信息] !LINK! 已存在
-    echo        正在删除旧链接...
-    rmdir "!LINK!" 2>nul || del "!LINK!" 2>nul
-    if exist "!LINK!" (
-        echo [错误] 无法删除旧链接，请手动删除后重跑
-        pause
-        exit /b 1
-    )
+if exist "!DEST!" (
+    echo [信息] !DEST! 已存在（可能是旧软链或上次安装），删除
+    rmdir /s /q "!DEST!" 2>nul
+    if exist "!DEST!" del /f /q "!DEST!" 2>nul
 )
 
-echo [步骤] 建立软链 !LINK! -^> !SRC_PLUGIN!
-mklink /D "!LINK!" "!SRC_PLUGIN!"
+echo [步骤] 复制 !SRC_PLUGIN! -^> !DEST!
+xcopy /E /I /Y /Q "!SRC_PLUGIN!" "!DEST!" >nul
 if errorlevel 1 (
-    echo [错误] mklink 失败 —— 通常是因为不是管理员
+    echo [错误] xcopy 失败
     pause
     exit /b 1
 )

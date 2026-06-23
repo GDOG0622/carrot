@@ -257,6 +257,11 @@ body: { url: "https://...", rawText: "可选，整条消息原文" }
 
 ## 4. 安装脚本规范
 
+> **v8.0.2 改动**：从软链（ln -s / mklink）改为复制（cp -r / xcopy）。
+>
+> 原因：① Windows 软链需要管理员，门槛高 ② 某些 FUSE / Android 文件系统不支持软链
+> 代价：carrot 升级前端后，plugin 不会自动同步 → 需重跑 install。前端 v8.0.2+ 会在 API 面板检测版本不一致时提示用户。
+
 ### 4.1 install.cmd（Windows）
 
 伪代码：

@@ -148,7 +148,8 @@
 3. 脚本会自动完成：
    - 定位酒馆根目录（扫常见路径 + 当前位置）
    - 把 `config.yaml` 的 `enableServerPlugins` 改为 `true`
-   - 建立软链 `<酒馆根>/plugins/carrot → <扩展目录>/carrot/plugin`
+   - 把 `carrot/plugin/` **复制**到 `<酒馆根>/plugins/carrot/`（v8.0.2+ 不再用软链，Windows 不需要管理员）
+   - **每次 carrot 升级后需要重跑 install 脚本，把新的后端文件同步过去**（前端 v8.0.2 起会在「API」面板检测版本不一致时提示）
 4. **重启酒馆服务器进程**：
    - ⚠️ 这里指**关掉跑 `node server.js` 的命令行黑窗口重新启动**，不是按 F5 刷新网页！
    - pm2 用户：`pm2 restart sillytavern`
@@ -162,14 +163,14 @@
    ```yaml
    enableServerPlugins: true
    ```
-2. 创建软链或复制目录：
+2. 复制 plugin 目录到酒馆 plugins 目录：
    ```sh
-   # Linux/Mac/Termux
-   ln -s /path/to/SillyTavern/data/<user>/extensions/carrot/plugin \
+   # Linux/Mac/Termux/VPS
+   cp -r /path/to/SillyTavern/data/<user>/extensions/third-party/carrot/plugin \
          /path/to/SillyTavern/plugins/carrot
 
-   # Windows（cmd，管理员）
-   mklink /D "C:\SillyTavern\plugins\carrot" "C:\SillyTavern\data\default-user\extensions\carrot\plugin"
+   # Windows
+   xcopy /E /I /Y "C:\SillyTavern\data\default-user\extensions\third-party\carrot\plugin" "C:\SillyTavern\plugins\carrot"
    ```
 3. 重启酒馆服务器进程
 

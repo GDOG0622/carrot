@@ -90,17 +90,17 @@ else
     echo "       未找到该字段，已追加"
 fi
 
-# 5. 建软链
+# 5. 复制 plugin 到酒馆 plugins 目录（不再用软链，更兼容）
 mkdir -p "$ST_ROOT/plugins"
-LINK="$ST_ROOT/plugins/carrot"
+DEST="$ST_ROOT/plugins/carrot"
 
-if [ -e "$LINK" ] || [ -L "$LINK" ]; then
-    echo "[信息] $LINK 已存在，删除旧链接"
-    rm -rf "$LINK"
+if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+    echo "[信息] $DEST 已存在（可能是旧软链或上次安装），删除"
+    rm -rf "$DEST"
 fi
 
-echo "[步骤] 建立软链 $LINK -> $SRC_PLUGIN"
-ln -s "$SRC_PLUGIN" "$LINK"
+echo "[步骤] 复制 $SRC_PLUGIN -> $DEST"
+cp -r "$SRC_PLUGIN" "$DEST"
 
 echo
 echo "============================================================"
