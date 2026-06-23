@@ -808,7 +808,7 @@ export function injectExtensionDrawer({
                     </div>
 
                     <!-- 链接解析 -->
-                    <details class="cip-ext-field" open>
+                    <details class="cip-ext-field">
                         <summary><b>链接解析</b></summary>
                         <div id="cip-api-link-status" style="margin:.5em 0;color:#888;font-size:.9em;"></div>
                         <div class="cip-ext-field">
@@ -839,22 +839,25 @@ export function injectExtensionDrawer({
                     <details class="cip-ext-field">
                         <summary><b>语音 STT</b></summary>
                         <div class="cip-ext-field">
-                            <small>硅基流动 Key（推荐，国内可直连）</small>
+                            <small>
+                                硅基流动 Key（推荐，国内可直连）
+                                <a href="#" id="cip-api-asr-silicon-howto" style="margin-left:.5em;font-size:.85em;">怎么拿 key？</a>
+                            </small>
                             <input type="password" id="cip-api-asr-silicon" class="text_pole" placeholder="sk-...">
+                            <div id="cip-api-asr-silicon-howto-panel" style="display:none;background:rgba(0,0,0,.05);border-radius:6px;padding:8px 10px;margin-top:.4em;font-size:.82em;line-height:1.6;">
+                                打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a>，用手机号注册，控制台 → API 密钥 → 新建。使用免费的 <code>FunAudioLLM/SenseVoiceSmall</code> 模型。
+                            </div>
                         </div>
                         <div class="cip-ext-field">
-                            <small>Groq Key（需要梯子）</small>
+                            <small>
+                                Groq Key（需要梯子）
+                                <a href="#" id="cip-api-asr-groq-howto" style="margin-left:.5em;font-size:.85em;">怎么拿 key？</a>
+                            </small>
                             <input type="password" id="cip-api-asr-groq" class="text_pole" placeholder="gsk_...">
+                            <div id="cip-api-asr-groq-howto-panel" style="display:none;background:rgba(0,0,0,.05);border-radius:6px;padding:8px 10px;margin-top:.4em;font-size:.82em;line-height:1.6;">
+                                打开 <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>，用 Google/GitHub 登录，API Keys → Create。使用免费的 <code>whisper-large-v3-turbo</code>，速度很快。
+                            </div>
                         </div>
-                        <details>
-                            <summary>如何获取 Key</summary>
-                            <p style="font-size:.9em;line-height:1.5;">
-                                <b>硅基流动</b>：打开 <a href="https://cloud.siliconflow.cn" target="_blank" rel="noopener">cloud.siliconflow.cn</a>，
-                                用手机号注册，控制台 → API 密钥 → 新建。使用免费的 <code>FunAudioLLM/SenseVoiceSmall</code> 模型。<br>
-                                <b>Groq</b>：打开 <a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a>，
-                                用 Google/GitHub 登录，API Keys → Create。使用免费的 <code>whisper-large-v3-turbo</code>，速度极快。
-                            </p>
-                        </details>
                     </details>
 
                 </div>
@@ -1310,7 +1313,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.20';
+            const FE_VERSION = '8.0.21';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1424,12 +1427,21 @@ async function initApiPane() {
 
     const jinaHowto = document.getElementById('cip-api-jina-howto');
     const jinaHowtoPanel = document.getElementById('cip-api-jina-howto-panel');
-    jinaHowto?.addEventListener('click', (e) => {
+    const toggleHowto = (link, panel) => link?.addEventListener('click', (e) => {
         e.preventDefault();
-        if (jinaHowtoPanel) {
-            jinaHowtoPanel.style.display = jinaHowtoPanel.style.display === 'none' ? '' : 'none';
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? '' : 'none';
         }
     });
+    toggleHowto(jinaHowto, jinaHowtoPanel);
+    toggleHowto(
+        document.getElementById('cip-api-asr-silicon-howto'),
+        document.getElementById('cip-api-asr-silicon-howto-panel'),
+    );
+    toggleHowto(
+        document.getElementById('cip-api-asr-groq-howto'),
+        document.getElementById('cip-api-asr-groq-howto-panel'),
+    );
 
     if (jinaToken) {
         s.linkParse = s.linkParse || {};

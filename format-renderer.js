@@ -18,6 +18,9 @@ const SAFE_HTML_TAGS = new Set([
     'ul',
     'ol',
     'li',
+    'details',
+    'summary',
+    'abstract',
 ]);
 const DROP_HTML_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'svg']);
 const SAFE_STYLE_PROPS = new Set([
@@ -595,6 +598,45 @@ function parseLinkBlock(lines, startIndex, isUser) {
     };
 }
 
+function parseHtmlBlock(lines, startIndex) {
+    const first = lines[startIndex];
+    const open = first.match(/^\s*<([a-z][\w:-]*)(?:\s[^>]*)?>/i);
+    if (!open) return null;
+
+    const tag = open[1].toLowerCase();
+    if (tag === 'link' || tag === 'carrot-image') return null;
+    if (DROP_HTML_TAGS.has(tag)) return null;
+
+    const closeRe = new RegExp(`</${tag}>\\s*$`, 'i');
+    if (closeRe.test(first) && looksLikeHtmlFragment(first)) {
+        return {
+            token: {
+                type: 'htmlBlock',
+                body: first.trim(),
+            },
+            endIndex: startIndex,
+        };
+    }
+
+    const bodyLines = [first];
+    for (let endIndex = startIndex + 1; endIndex < lines.length; endIndex += 1) {
+        bodyLines.push(lines[endIndex]);
+        if (closeRe.test(lines[endIndex])) {
+            const body = bodyLines.join('\n').trim();
+            if (!looksLikeHtmlFragment(body)) return null;
+            return {
+                token: {
+                    type: 'htmlBlock',
+                    body,
+                },
+                endIndex,
+            };
+        }
+    }
+
+    return null;
+}
+
 function parseLine(line, isUser) {
     if (isUser) {
         const carrotImage = line.match(/^\s*<carrot-image\b([^>]*)>([\s\S]*?)<\/carrot-image>\s*$/i);
@@ -710,6 +752,14 @@ function parseTokens(text, isUser) {
         if (voice) {
             tokens.push(voice.token);
             i = voice.endIndex;
+            changed = true;
+            continue;
+        }
+
+        const htmlBlock = parseHtmlBlock(lines, i);
+        if (htmlBlock) {
+            tokens.push(htmlBlock.token);
+            i = htmlBlock.endIndex;
             changed = true;
             continue;
         }
