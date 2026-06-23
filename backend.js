@@ -321,12 +321,7 @@ function setModalStatus() {
 async function refreshStatus() {
     await pingBackend();
     setModalStatus();
-    if (state.ready) {
-        // 通了之后等 1s 自动关闭，给用户看一眼成功状态
-        setTimeout(() => {
-            hideModal();
-        }, 1000);
-    }
+    // 不自动关闭：用户读完会自己点关闭
 }
 
 export function showGuideModal() {
