@@ -1310,7 +1310,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.18';
+            const FE_VERSION = '8.0.19';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1380,7 +1380,7 @@ async function initApiPane() {
             }
             return;
         }
-        if (!confirm('将先同步 carrot 后端文件，再让酒馆 node 进程退出，由 pm2/systemd 自动拉起。\n约 5-15 秒后页面会重新连上。继续？')) return;
+        if (!confirm('将先同步 carrot 后端文件，再让酒馆 node 进程退出，由 pm2/systemd 自动拉起。\n后端拉起后页面会自动刷新（必须，否则 CSRF token 会失效导致发送 403）。\n约 5-15 秒后页面会重新连上。继续？')) return;
         restartBtn.disabled = true;
         const prevText = restartBtn.textContent;
         restartBtn.textContent = '重启中…';
@@ -1396,9 +1396,11 @@ async function initApiPane() {
                 if (ok) {
                     clearInterval(timer);
                     refreshStatus();
-                    if (typeof toastr !== 'undefined') toastr.success('后端已恢复', 'carrot');
-                    restartBtn.disabled = false;
-                    restartBtn.textContent = prevText;
+                    if (typeof toastr !== 'undefined') toastr.info('后端已恢复，正在刷新页面以拿到新 CSRF token…', 'carrot');
+                    // 关键：进程重启后服务器 session 全新，浏览器持有的 CSRF token 已失效，
+                    // 必须刷新整页才能拿到新 token，否则发送消息会 403。
+                    setTimeout(() => window.location.reload(), 600);
+                    return;
                 } else if (attempts >= 30) {
                     clearInterval(timer);
                     statusText.textContent = '超过 30s 未拉起，请手动检查 pm2/systemd';
