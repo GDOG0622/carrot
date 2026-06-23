@@ -158,48 +158,50 @@ carrot/
 
 ## 3. Plugin 后端规范
 
-### 3.1 ST Server Plugin 集成（**待研究**）
+### 3.1 ST Server Plugin 集成（已调研 ✅ 2026-06-23）
 
-**!!! 第一步必做的调研 !!!**
+**调研依据**：<https://docs.sillytavern.app/for-contributors/server-plugins/> + ST release 源码
 
-需要先确认 SillyTavern release 最新版的 server plugin 注册接口。建议路径：
+| 项 | 实情 |
+|---|---|
+| 安装位置 | `<ST_ROOT>/plugins/<id>/` |
+| 启用开关 | `config.yaml` 的 `enableServerPlugins: true` |
+| 入口文件 | 子目录形式按优先级：`package.json` "main" → `index.js` → `index.mjs` |
+| 必须导出 | `init(router)` + `info: {id, name, description}`；`exit()` 可选 |
+| init 接收 | **裸的** `express.Router()`，**没有任何中间件**（包括 body parser，得自己加） |
+| 路由前缀 | `/api/plugins/<id>/<route>`（id 来自 `info.id`） |
+| 沙箱 | 无，plugin 拥有完整 fs/网络访问 |
+| 热加载 | 不支持，改了 plugin 代码必须重启 ST 服务器进程 |
+| 模块系统 | CommonJS (.js) 或 ES Modules (.mjs)，二选一 |
 
-1. 拉一份 SillyTavern release 最新版源码到本地（或 GitHub 在线看）：<https://github.com/SillyTavern/SillyTavern>
-2. 看 `server.js` / `src/plugin-loader.js` 之类文件
-3. 找一个示例插件参考（社区有 `SillyTavern-Plugin-Manager` 之类）
-4. 确认：
-   - plugin 入口文件名（`index.js` / `main.js`）
-   - 必须导出的字段（`init`、`exit`、`info` 等）
-   - `init` 函数签名（接收什么参数？express router？还是整个 app？）
-   - 路由前缀（是 `/api/plugins/<id>/*` 还是别的）
-   - 数据存储约定（用 plugin 自己目录 vs `data/<user>/files/`）
-   - 是否支持热加载或必须重启
-
-**预期形态**（凭印象，需验证）：
+**carrot plugin 入口形态**（实现时按此结构）：
 
 ```js
-// plugin/index.js
-const express = require('express');
+// plugin/index.js (CommonJS)
+const express = require('express');   // 复用 ST 进程的 express，不用自带依赖
 
-module.exports = {
-  info: {
-    id: 'carrot',
-    name: 'Carrot Backend',
-    description: '为 carrot 扩展提供链接解析等后端能力',
-  },
-  init: async (router) => {
-    router.get('/ping', (req, res) => res.json({
-      ok: true,
-      version: require('./manifest.json').version,
-    }));
-    router.post('/link-preview', linkPreviewHandler);
-    router.get('/covers/:filename', coverServeHandler);
-  },
-  exit: async () => {},
+const info = {
+  id: 'carrot',                                          // → /api/plugins/carrot/*
+  name: 'Carrot Backend',
+  description: '为 carrot 扩展提供链接解析、封面缓存等后端能力',
 };
+
+async function init(router) {
+  router.use(express.json({ limit: '1mb' }));            // !! 必须自己加 body parser
+  router.get('/ping', (req, res) => res.json({ ok: true, version: '8.0' }));
+  router.post('/link-preview', require('./link-preview'));
+  router.get('/covers/:filename', require('./cover-cache').serve);
+}
+
+async function exit() {}
+
+module.exports = { init, exit, info };
 ```
 
-如果实际接口不同，调整结构但**对外 API 路径必须是** `/api/plugins/carrot/ping`、`/api/plugins/carrot/link-preview`、`/api/plugins/carrot/covers/<hash>.jpg`（前端这么调）。
+对外 API 路径锁定：
+- `GET  /api/plugins/carrot/ping`
+- `POST /api/plugins/carrot/link-preview`
+- `GET  /api/plugins/carrot/covers/<hash>.jpg`
 
 ### 3.2 `/ping` 接口
 
