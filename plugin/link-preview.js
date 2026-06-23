@@ -184,9 +184,59 @@ const extractJsonObjectAfterKey = (html, key) => {
     }
 };
 
+const normalizeXhsComments = (commentData) => {
+    const list = Array.isArray(commentData?.comments) ? commentData.comments : [];
+    const out = [];
+    const pushComment = (item, parentNickname = '') => {
+        if (!item || out.length >= 10) return;
+        const user = item.user || {};
+        const nickname = String(user.nickname || user.nickName || '').trim();
+        const content = String(item.content || '').trim()
+            || (Array.isArray(item.pictures) && item.pictures.length ? '[图片评论]' : '');
+        const ipLocation = String(item.ipLocation || '').trim();
+        const likeCount = item.likeCount ?? item.likeViewCount ?? '';
+        const subCommentCount = item.subCommentCount ?? (Array.isArray(item.subComments) ? item.subComments.length : 0);
+        if (!content && !nickname) return;
+        out.push({
+            nickname,
+            content,
+            ipLocation,
+            likeCount,
+            subCommentCount,
+            parentNickname,
+        });
+    };
+
+    for (const item of list) {
+        if (out.length >= 10) break;
+        const parentName = String(item?.user?.nickname || item?.user?.nickName || '').trim();
+        pushComment(item);
+        const subs = Array.isArray(item?.subComments) ? item.subComments : [];
+        for (const sub of subs) {
+            if (out.length >= 10) break;
+            pushComment(sub, parentName);
+        }
+    }
+    return out;
+};
+
+const extractXhsCommentsFromHtml = (html) => {
+    let from = 0;
+    const KEY = '"commentData":';
+    while (true) {
+        const k = html.indexOf(KEY, from);
+        if (k === -1) return [];
+        from = k + KEY.length;
+        const data = extractJsonObjectAfterKey(html.slice(k), KEY);
+        const comments = normalizeXhsComments(data);
+        if (comments.length) return comments;
+    }
+};
+
 const parseXhsFromHtml = (html, baseUrl) => {
     let from = 0;
     const KEY = '"noteData":';
+    const comments = extractXhsCommentsFromHtml(html);
     while (true) {
         const k = html.indexOf(KEY, from);
         if (k === -1) break;
@@ -205,6 +255,7 @@ const parseXhsFromHtml = (html, baseUrl) => {
                 title: title || desc || '小红书笔记',
                 description: desc,
                 image,
+                comments,
                 siteName: '小红书',
                 source: 'xhs-state',
                 url: baseUrl,
@@ -215,7 +266,7 @@ const parseXhsFromHtml = (html, baseUrl) => {
     const og = parseOgFromHtml(html, baseUrl);
     const finalHost = (() => { try { return new URL(baseUrl).hostname; } catch { return ''; } })();
     if (og.title && !isGenericPreviewText(og.title, finalHost)) {
-        return { ...og, source: 'xhs-og', url: baseUrl };
+        return { ...og, comments, source: 'xhs-og', url: baseUrl };
     }
     return null;
 };

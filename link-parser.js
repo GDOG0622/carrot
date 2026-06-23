@@ -96,7 +96,19 @@ function sanitizeField(value, maxLen) {
 
 function buildToken(preview, originalUrl) {
     const title = sanitizeField(preview.title || preview.siteName || '链接', 100);
-    const desc = sanitizeField(preview.description || '', 200);
+    const comments = Array.isArray(preview.comments) ? preview.comments.slice(0, 5) : [];
+    const commentText = comments.map((item, index) => {
+        const parent = item.parentNickname ? `回复${item.parentNickname} ` : '';
+        const name = item.nickname ? `${item.nickname}: ` : '';
+        const ip = item.ipLocation ? `(${item.ipLocation})` : '';
+        const likes = item.likeCount !== '' && item.likeCount !== undefined ? ` 赞${item.likeCount}` : '';
+        return `${index + 1}. ${parent}${name}${item.content || ''}${ip}${likes}`;
+    }).filter(Boolean).join(' / ');
+    const descSource = [
+        preview.description || '',
+        commentText ? `评论前${comments.length}条: ${commentText}` : '',
+    ].filter(Boolean).join(' ｜ ');
+    const desc = sanitizeField(descSource, 800);
     // cover 优先用 plugin 缓存的本地路径 imageLocal
     const cover = sanitizeField(preview.imageLocal || preview.image || '', 500);
     return `[link|${title}|${desc}|${cover}]${originalUrl}[/link]`;
