@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.9';
+    const V = 'v=8.0.10';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -894,6 +894,7 @@
         if (
             inputPanel.classList.contains('active') &&
             !inputPanel.contains(e.target) &&
+            !expressionPopover.contains(e.target) &&
             !carrotButton.contains(e.target)
         )
             hidePanel();
