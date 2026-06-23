@@ -801,7 +801,8 @@ export function injectExtensionDrawer({
                         <div class="cip-ext-sync-btns">
                             <button id="cip-api-check-btn" class="menu_button">重新检测</button>
                             <button id="cip-api-guide-btn" class="menu_button">重开引导</button>
-                            <button id="cip-api-restart-btn" class="menu_button" style="display:none;" title="酒馆进程退出后由 pm2/systemd 自动拉起">重启后端</button>
+                            <button id="cip-api-sync-btn" class="menu_button" style="display:none;" title="把新版 carrot/plugin 同步到酒馆 plugins/carrot">同步后端</button>
+                            <button id="cip-api-restart-btn" class="menu_button" style="display:none;" title="先同步后端，再由 pm2/systemd 自动拉起">同步并重启</button>
                         </div>
                         <div id="cip-api-runtime" style="margin-top:.4em;color:#888;font-size:.85em;"></div>
                     </div>
@@ -1244,7 +1245,7 @@ function bindSyncPane() {
 }
 
 async function initApiPane() {
-    const { pingBackend, isBackendReady, showGuideModal, getBackendStatus, requestBackendRestart } = await import('./backend.js');
+    const { pingBackend, isBackendReady, showGuideModal, getBackendStatus, syncBackendPlugin, requestBackendRestart } = await import('./backend.js');
     const s = getSettings();
     s.asr = s.asr || {};
 
@@ -1252,6 +1253,7 @@ async function initApiPane() {
     const statusText = document.getElementById('cip-api-status-text');
     const checkBtn = document.getElementById('cip-api-check-btn');
     const guideBtn = document.getElementById('cip-api-guide-btn');
+    const syncBtn = document.getElementById('cip-api-sync-btn');
     const restartBtn = document.getElementById('cip-api-restart-btn');
     const runtimeInfo = document.getElementById('cip-api-runtime');
     const linkStatus = document.getElementById('cip-api-link-status');
@@ -1268,26 +1270,31 @@ async function initApiPane() {
             : '未启用';
 
         // 进程管理器：受管才显示"重启"按钮
+        if (ready) {
+            syncBtn.style.display = '';
+        } else {
+            syncBtn.style.display = 'none';
+        }
         if (ready && st.runtime?.managed) {
             restartBtn.style.display = '';
-            runtimeInfo.textContent = `运行环境：${st.runtime.manager}（可一键重启）`;
+            runtimeInfo.textContent = `运行环境：${st.runtime.manager}（可同步并自动重启）`;
         } else if (ready) {
             restartBtn.style.display = 'none';
             const tag = st.runtime?.manager === 'docker-unknown'
                 ? 'docker（未知 restart policy）'
                 : '裸 node';
-            runtimeInfo.textContent = `运行环境：${tag}（重启需手动 —— 关闭并重新启动 node 进程）`;
+            runtimeInfo.textContent = `运行环境：${tag}（可同步后端；重启需手动完成）`;
         } else {
             restartBtn.style.display = 'none';
             runtimeInfo.textContent = '';
         }
 
-        // 前后端版本一致性检查（v8.0.2+ 改为 copy 部署，升级后需重跑 install.sh）
+        // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.2';
+            const FE_VERSION = '8.0.4';
             const major = (v) => String(v).split('.').slice(0, 2).join('.');
             if (major(st.version) !== major(FE_VERSION)) {
-                runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议重跑 install 脚本同步</span>`;
+                runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 主版本不一致，建议点击「同步后端」</span>`;
             }
         }
         // 链接解析子节状态
@@ -1315,8 +1322,25 @@ async function initApiPane() {
         showGuideModal();
     });
 
+    syncBtn?.addEventListener('click', async () => {
+        syncBtn.disabled = true;
+        const prevText = syncBtn.textContent;
+        syncBtn.textContent = '同步中…';
+        try {
+            await syncBackendPlugin();
+            if (typeof toastr !== 'undefined') toastr.success('后端文件已同步，手动重启酒馆后生效', 'carrot');
+            await pingBackend();
+            refreshStatus();
+        } catch (e) {
+            if (typeof toastr !== 'undefined') toastr.error(e?.message || String(e), '同步失败');
+        } finally {
+            syncBtn.disabled = false;
+            syncBtn.textContent = prevText;
+        }
+    });
+
     restartBtn?.addEventListener('click', async () => {
-        if (!confirm('将让酒馆 node 进程退出，由 pm2/systemd 自动拉起。\n约 5-15 秒后页面会重新连上。继续？')) return;
+        if (!confirm('将先同步 carrot 后端文件，再让酒馆 node 进程退出，由 pm2/systemd 自动拉起。\n约 5-15 秒后页面会重新连上。继续？')) return;
         restartBtn.disabled = true;
         const prevText = restartBtn.textContent;
         restartBtn.textContent = '重启中…';

@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.3';
+    const V = 'v=8.0.4';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -22,6 +22,7 @@
     const { initFormatRenderer } = await import(`./format-renderer.js?${V}`);
     const { initBackend } = await import(`./backend.js?${V}`);
     const { initSendHook } = await import(`./send-hook.js?${V}`);
+    const { initVoiceInput } = await import(`./voice-input.js?${V}`);
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -108,6 +109,8 @@
         initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
         // v8.0: 安装 send hook，拦截发送时解析链接
         initSendHook();
+        // v8.1: 安装语音输入按钮逻辑
+        initVoiceInput();
     } else {
         console.error(
             '胡萝卜输入面板：未能找到SillyTavern的UI挂载点，插件无法加载。',

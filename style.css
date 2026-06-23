@@ -28,6 +28,7 @@
     .cip-tab-button,
     .cip-sub-option-btn,
     #cip-recall-button,
+    #cip-voice-input-button,
     #cip-insert-button,
     .cip-modal-actions button {
         -webkit-tap-highlight-color: transparent;
@@ -324,6 +325,7 @@
     margin-left: auto;
 }
 #cip-recall-button,
+#cip-voice-input-button,
 #cip-insert-button {
     padding: 6px 16px;
     border: none;
@@ -334,6 +336,20 @@
     transition: background-color var(--cip-transition-speed);
     white-space: nowrap;
     flex-shrink: 0;
+}
+#cip-voice-input-button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cip-text-color);
+    background-color: var(--cip-tabs-bg-color);
+}
+#cip-voice-input-button.cip-recording {
+    color: #e74c3c;
+    box-shadow: 0 0 0 2px rgba(231, 76, 60, .25);
 }
 #cip-recall-button {
     background-color: var(--cip-tabs-bg-color);

@@ -147,21 +147,35 @@
    - **Linux / Mac / Termux**：`bash install.sh`
      若你在服务器终端里，不确定扩展目录在哪，先用下面这组命令自动查找：
      ```sh
-     cd /root/sillytavern
-     EXT_INSTALL=$(find "$PWD/data" -path '*/extensions*/carrot/plugin/install/install.sh' -type f | head -n 1)
+     cd /root/SillyTavern
+     EXT_INSTALL=$(find "$PWD/public/scripts/extensions" "$PWD/data" -path '*/carrot/plugin/install/install.sh' -type f 2>/dev/null | head -n 1)
      bash "$EXT_INSTALL" "$PWD"
      ```
 3. 脚本会自动完成：
    - 定位酒馆根目录（扫常见路径 + 当前位置）
    - 把 `config.yaml` 的 `enableServerPlugins` 改为 `true`
    - 把 `carrot/plugin/` **复制**到 `<酒馆根>/plugins/carrot/`（v8.0.2+ 不再用软链，Windows 不需要管理员）
-   - **每次 carrot 升级后需要重跑 install 脚本，把新的后端文件同步过去**（前端 v8.0.2 起会在「API」面板检测版本不一致时提示）
+   - carrot 升级后可在设置面板的「API」里点「同步后端」，也可以重跑 install 脚本手动同步
 4. **重启酒馆服务器进程**：
    - ⚠️ 这里指**关掉跑 `node server.js` 的命令行黑窗口重新启动**，不是按 F5 刷新网页！
    - pm2 用户：`pm2 restart sillytavern`
    - systemd 用户：`sudo systemctl restart sillytavern`
    - Termux 用户：Ctrl+C 停掉 → 重新跑 `node server.js`
 5. 重启后回到酒馆，carrot 设置面板的「API」标签会显示绿色「已启用」
+
+### 更新后端
+
+v8.0.4 起，carrot 设置面板 → API 里有：
+
+- **同步后端**：把新版 `carrot/plugin/` 复制到 `<酒馆根>/plugins/carrot/`，所有环境可用；同步后需要重启酒馆服务器进程才会加载新版。
+- **同步并重启**：仅在 pm2 / systemd 环境显示，会先同步后端，再退出 node 进程等待管理器自动拉起。
+
+Docker、Termux、Windows、裸 `node server.js` 无法安全判断是否会自动拉起，所以只提供同步，重启请按你的部署方式手动完成。
+
+### 语音输入
+
+在 carrot 面板底部「撤回」左侧点击麦克风开始录音，再点一次停止，识别文本会插入酒馆主输入框。
+浏览器要求 HTTPS 或 localhost 才允许麦克风权限；如果你用公网 IP 的 HTTP 页面访问，语音输入会被浏览器拦截。
 
 ### 手动启用（脚本失败时）
 

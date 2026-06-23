@@ -24,9 +24,21 @@ export function getBackendStatus() {
     return { ...state, modal: undefined, pollTimer: undefined };
 }
 
+export async function syncBackendPlugin() {
+    const res = await fetch('/api/plugins/carrot/sync-plugin', {
+        method: 'POST',
+        headers: jsonRequestHeaders(),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    return data;
+}
+
 /**
  * 调 plugin 触发自身退出，由 pm2/systemd 自动拉起。
- * 仅 state.runtime.managed === true 时调用才有意义。
+ * 后端会先同步 plugin 文件；仅 state.runtime.managed === true 时会真正退出重启。
  */
 export async function requestBackendRestart() {
     try {
@@ -94,7 +106,7 @@ function buildModal() {
                     </ul>
                     <div style="font-size:.9em;color:#666;margin-top:.35em;">
                         服务器终端可先进入酒馆根目录，再执行：<br>
-                        <code>EXT_INSTALL=$(find "$PWD/data" -path '*/extensions*/carrot/plugin/install/install.sh' -type f | head -n 1)</code><br>
+                        <code>EXT_INSTALL=$(find "$PWD/public/scripts/extensions" "$PWD/data" -path '*/carrot/plugin/install/install.sh' -type f 2>/dev/null | head -n 1)</code><br>
                         <code>bash "$EXT_INSTALL" "$PWD"</code>
                     </div>
                 </li>

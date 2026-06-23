@@ -45,6 +45,9 @@ export function createUI() {
                 </button>
             </div>
             <div class="cip-footer-actions">
+                <button id="cip-voice-input-button" class="cip-footer-icon-button" type="button" title="语音输入">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
                 <button id="cip-recall-button" title="撤回">撤回</button>
                 <button id="cip-insert-button">插入</button>
             </div>

@@ -1,4 +1,4 @@
-import { getRequestHeaders } from '../../../script.js';
+import { getRequestHeaders } from '/script.js';
 
 export function jsonRequestHeaders() {
     return {
