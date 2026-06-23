@@ -854,6 +854,200 @@ emoji-picker {
     color: white;
 }
 
+/* === carrot 后端引导面板 === */
+.cip-backend-guide-modal {
+    width: min(680px, 92vw) !important;
+    max-width: 680px !important;
+    gap: 12px;
+}
+.cip-backend-guide-modal h3 {
+    font-size: 17px;
+}
+.cip-guide-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+}
+.cip-guide-tab {
+    flex: 1 1 auto;
+    min-width: 90px;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 7px;
+    color: var(--cip-text-color);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background var(--cip-transition-speed);
+}
+.cip-guide-tab:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+.cip-guide-tab.active {
+    background: var(--cip-accent-color);
+    color: #fff;
+    font-weight: 600;
+}
+.cip-guide-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 10px;
+    padding: 14px 16px;
+}
+.cip-guide-intro {
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0;
+    color: var(--cip-text-color);
+    opacity: .9;
+}
+.cip-guide-step {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cip-guide-step-head {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cip-guide-step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--cip-accent-color);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+.cip-guide-mode {
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.cip-guide-mode-title {
+    font-size: 13px;
+    font-weight: 600;
+}
+.cip-guide-mode-hint {
+    font-weight: 400;
+    font-size: 11px;
+    opacity: .65;
+    margin-left: 4px;
+}
+.cip-guide-mode-path {
+    font-size: 12px;
+    opacity: .85;
+    word-break: break-all;
+}
+.cip-guide-mode-path code,
+.cip-guide-mode-cmd code,
+.cip-guide-restart code,
+.cip-guide-tip code {
+    background: rgba(0, 0, 0, 0.08);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+.cip-guide-mode-cmd pre {
+    margin: 0;
+    background: rgba(0, 0, 0, 0.78);
+    color: #e8e8e8;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+}
+.cip-guide-mode-sep {
+    text-align: center;
+    font-size: 11px;
+    opacity: .55;
+    margin: 2px 0;
+}
+.cip-guide-restart {
+    margin: 0;
+    padding-left: 1.2em;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.cip-guide-tip {
+    background: rgba(255, 200, 60, 0.18);
+    border-left: 3px solid #f0b800;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.cip-guide-status {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.06);
+    font-size: 13px;
+}
+.cip-guide-update {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+.cip-guide-update > summary {
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    padding: 2px 0;
+}
+.cip-guide-update > summary::-webkit-details-marker { display: none; }
+.cip-guide-update > summary::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: 6px;
+    transition: transform .15s;
+}
+.cip-guide-update[open] > summary::before { transform: rotate(90deg); }
+.cip-guide-update-body {
+    padding: 8px 4px 4px;
+    line-height: 1.6;
+}
+.cip-guide-update-body p { margin: 0 0 8px; }
+.cip-guide-update-body ol {
+    margin: 0 0 8px;
+    padding-left: 1.2em;
+}
+.cip-guide-update-body ol li { margin-bottom: 4px; }
+@media (max-width: 600px) {
+    .cip-backend-guide-modal {
+        width: calc(100vw - 24px) !important;
+    }
+    .cip-guide-tabs {
+        gap: 4px;
+    }
+    .cip-guide-tab {
+        font-size: 12px;
+        padding: 6px 8px;
+        min-width: 0;
+    }
+    .cip-guide-body {
+        padding: 10px 12px;
+    }
+}
+
 /* 头像与头像框分区样式 */
 .cip-avatar-section,
 .cip-frame-section {
