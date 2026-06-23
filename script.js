@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.16';
+    const V = 'v=8.0.17';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -559,8 +559,18 @@
                     stickerCategoriesContainer.appendChild(o));
             }));
     }
+    function findSendTextarea() {
+        // 某些 ST 渲染状态下会出现两个 id=send_textarea 的元素（HTML 非法但存在），
+        // 其中一个 0x0 隐藏，querySelector 总拿到第一个就可能写进隐藏那个。
+        // 这里从所有匹配里挑实际可见（有尺寸）的那个。
+        const all = document.querySelectorAll('#send_textarea');
+        for (const el of all) {
+            if (el.offsetWidth > 0 && el.offsetHeight > 0) return el;
+        }
+        return all[0] || null;
+    }
     function insertIntoSillyTavern(t) {
-        const o = document.querySelector('#send_textarea');
+        const o = findSendTextarea();
         if (!o) { alert('未能找到SillyTavern的输入框！'); return; }
         const nextValue = (o.value || '') + ((o.value || '').trim() ? '\n' : '') + t;
         // 用原生原型的 value setter 写入：绕过 ST/textcomplete 等 wrapper 改写过的同名 setter，
