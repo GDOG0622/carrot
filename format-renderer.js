@@ -411,9 +411,12 @@ function createRecallLine(documentRef, token) {
     return outer;
 }
 
-function createLinkCard(documentRef, token) {
+function createLinkCard(documentRef, token, side = 'user') {
     // 把 sanitize 时换成全角的 ｜ 还原显示（仅显示用）
     const restore = (s) => String(s || '').replace(/｜/g, '|');
+    const wrap = documentRef.createElement('div');
+    wrap.className = `carrot-link-card-line carrot-link-card-line-${side}`;
+
     const card = documentRef.createElement('a');
     card.className = 'carrot-link-card';
     card.href = token.url;
@@ -440,13 +443,6 @@ function createLinkCard(documentRef, token) {
     const body = documentRef.createElement('div');
     body.className = 'carrot-link-card__body';
 
-    if (token.before) {
-        const before = documentRef.createElement('div');
-        before.className = 'carrot-link-card__context';
-        before.textContent = restore(token.before);
-        body.appendChild(before);
-    }
-
     const title = documentRef.createElement('div');
     title.className = 'carrot-link-card__title';
     title.textContent = restore(token.title) || '链接';
@@ -459,20 +455,6 @@ function createLinkCard(documentRef, token) {
         body.appendChild(desc);
     }
 
-    if (token.imageText) {
-        const imageText = documentRef.createElement('div');
-        imageText.className = 'carrot-link-card__image-code';
-        imageText.textContent = restore(token.imageText);
-        body.appendChild(imageText);
-    }
-
-    if (token.after) {
-        const after = documentRef.createElement('div');
-        after.className = 'carrot-link-card__context';
-        after.textContent = restore(token.after);
-        body.appendChild(after);
-    }
-
     const site = documentRef.createElement('div');
     site.className = 'carrot-link-card__site';
     let host = '';
@@ -481,7 +463,8 @@ function createLinkCard(documentRef, token) {
     body.appendChild(site);
 
     card.appendChild(body);
-    return card;
+    wrap.appendChild(card);
+    return wrap;
 }
 
 function decodeAttr(value) {
@@ -745,7 +728,7 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
         } else if (token.type === 'recall') {
             rendered.appendChild(createRecallLine(documentRef, token));
         } else if (token.type === 'linkCard') {
-            rendered.appendChild(createLinkCard(documentRef, token));
+            rendered.appendChild(createLinkCard(documentRef, token, side));
         } else {
             rendered.appendChild(createTextLine(documentRef, token));
         }
