@@ -19,6 +19,7 @@
     const { createUnsplashProcessor } = await import('./unsplash.js');
     const { initFormatRenderer } = await import('./format-renderer.js?v=20260514-inner-force-1');
     const { initBackend } = await import('./backend.js');
+    const { initSendHook } = await import('./send-hook.js');
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -103,6 +104,8 @@
 
         // v8.0: 启动后探测 backend plugin，不通时弹引导
         initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
+        // v8.0: 安装 send hook，拦截发送时解析链接
+        initSendHook();
     } else {
         console.error(
             '胡萝卜输入面板：未能找到SillyTavern的UI挂载点，插件无法加载。',
