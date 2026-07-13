@@ -1351,6 +1351,37 @@ emoji-picker {
     gap: 10px;
     padding: 4px 0;
 }
+.cip-qqr-preset-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 6px;
+}
+.cip-qqr-preset-bar select {
+    min-width: 0;
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 8px;
+    background: var(--cip-input-bg-color);
+    color: var(--cip-text-color);
+}
+#cip-qqr-apply-btn {
+    padding: 6px 12px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 16px;
+    background: var(--cip-active-bg-color);
+    color: var(--cip-text-color);
+    cursor: pointer;
+}
+#cip-qqr-apply-btn:disabled,
+.cip-qqr-preset-bar .cip-preset-icon-btn:disabled {
+    cursor: default;
+    opacity: 0.35;
+}
+#cip-qqr-delete-collection-btn {
+    color: var(--cip-delete-color);
+}
 #cip-qqr-import-input {
     width: 100%;
     min-height: 96px;
@@ -1373,9 +1404,6 @@ emoji-picker {
 }
 .cip-qqr-actions button:hover {
     background-color: var(--cip-active-bg-color);
-}
-#cip-qqr-clear-btn {
-    color: var(--cip-delete-color);
 }
 .cip-qqr-grid {
     display: grid;

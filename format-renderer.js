@@ -1015,7 +1015,7 @@ export function initFormatRenderer({
             force: !!options.force,
         });
         if (typeof afterProcess === 'function') {
-            afterProcess(element);
+            afterProcess(element, { sourceText: readSourceText(element) });
         }
         return changed;
     };

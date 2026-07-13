@@ -48,14 +48,54 @@ function createQqrPlaceholder(documentRef, description) {
     return placeholder;
 }
 
+function syncQqrPlaceholdersFromSource(element, sourceText, documentRef) {
+    if (typeof sourceText !== 'string') return false;
+    const descriptions = Array.from(
+        sourceText.matchAll(/<!--\s*([^<>]+?)\.qqr\s*-->/gi),
+        (match) => normalizeDescription(match[1]),
+    ).filter((description) => description && !/--|[<>]/.test(description));
+
+    const existingByDescription = new Map();
+    element
+        .querySelectorAll?.('[data-carrot-qqr-placeholder], img[data-carrot-qqr-key]')
+        .forEach((node) => {
+            const description = normalizeDescription(
+                node.dataset.carrotQqrPlaceholder || node.dataset.carrotQqrKey,
+            );
+            if (!existingByDescription.has(description)) existingByDescription.set(description, []);
+            existingByDescription.get(description).push(node);
+        });
+
+    let changed = false;
+    descriptions.forEach((description) => {
+        const existing = existingByDescription.get(description);
+        if (existing?.length) {
+            existing.shift();
+            return;
+        }
+        element.appendChild(createQqrPlaceholder(documentRef, description));
+        changed = true;
+    });
+
+    existingByDescription.forEach((nodes) => {
+        nodes.forEach((node) => {
+            node.remove();
+            changed = true;
+        });
+    });
+    return changed;
+}
+
 export function replaceQqrPlaceholders({
     element,
     qqrLookup,
     replacePlaceholderWithNode,
+    sourceText,
     documentRef = document,
 }) {
-    if (!element || !qqrLookup?.size) return false;
-    let replacedAny = false;
+    if (!element) return false;
+    let replacedAny = syncQqrPlaceholdersFromSource(element, sourceText, documentRef);
+    if (!qqrLookup?.size) return replacedAny;
     element.querySelectorAll?.('[data-carrot-qqr-placeholder]').forEach((placeholder) => {
         const description = normalizeDescription(placeholder.dataset.carrotQqrPlaceholder);
         const url = qqrLookup.get(description);

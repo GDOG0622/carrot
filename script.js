@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.31';
+    const V = 'v=8.0.32';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -229,7 +229,10 @@
     const bubbleStatus = get('cip-bubble-status');
     const qqrImportInput = get('cip-qqr-import-input');
     const qqrImportBtn = get('cip-qqr-import-btn');
-    const qqrClearBtn = get('cip-qqr-clear-btn');
+    const qqrApplyBtn = get('cip-qqr-apply-btn');
+    const qqrCollectionSelect = get('cip-qqr-collection-select');
+    const qqrRenameBtn = get('cip-qqr-rename-btn');
+    const qqrDeleteCollectionBtn = get('cip-qqr-delete-collection-btn');
     const qqrStatus = get('cip-qqr-status');
     const qqrGrid = get('cip-qqr-grid');
 
@@ -444,7 +447,9 @@
     let currentTextSubType = 'plain',
         stickerData = {},
         stickerLookup = new Map(),
-        qqrData = [],
+        qqrCollections = Object.create(null),
+        activeQqrCollection = '',
+        selectedQqrCollection = '',
         qqrLookup = new Map(),
         currentStickerCategory = '',
         expressionMode = 'emoji',
@@ -676,9 +681,9 @@
         });
     }
 
-    function runPostRenderProcessors(element) {
+    function runPostRenderProcessors(element, { sourceText } = {}) {
         if (!element) return;
-        replaceQqrPlaceholders(element);
+        replaceQqrPlaceholders(element, sourceText);
         replaceStickerPlaceholders(element);
         unsplashProcessor?.processMessageElement?.(element);
     }
@@ -714,13 +719,14 @@
         rebuildStickerLookup();
     }
     function rebuildQqrLookup() {
-        qqrLookup = buildQqrLookup(qqrData);
+        qqrLookup = buildQqrLookup(qqrCollections[activeQqrCollection] || []);
     }
-    function replaceQqrPlaceholders(element) {
+    function replaceQqrPlaceholders(element, sourceText) {
         return replaceQqrPlaceholdersCore({
             element,
             qqrLookup,
             replacePlaceholderWithNode,
+            sourceText,
             documentRef: document,
         });
     }
@@ -734,15 +740,24 @@
     function renderQqrGrid() {
         if (!qqrGrid) return;
         qqrGrid.innerHTML = '';
-        if (!qqrData.length) {
-            qqrGrid.innerHTML = '<div class="cip-qqr-empty">还没有导入 QQ 人</div>';
+        const selectedItems = qqrCollections[selectedQqrCollection] || [];
+        if (!selectedQqrCollection) {
+            qqrGrid.innerHTML = '<div class="cip-qqr-empty">还没有保存 QQ 人集合</div>';
             return;
         }
-        qqrData.forEach((item, index) => {
+        if (!selectedItems.length) {
+            qqrGrid.innerHTML = '<div class="cip-qqr-empty">这个集合还没有 QQ 人</div>';
+            return;
+        }
+        selectedItems.forEach((item, index) => {
             const card = document.createElement('div');
             card.className = 'cip-qqr-card';
             card.title = `点击插入 <!--${item.desc}.qqr-->`;
             card.addEventListener('click', () => {
+                if (selectedQqrCollection !== activeQqrCollection) {
+                    if (qqrStatus) qqrStatus.textContent = '请先应用这个集合，再插入其中的 QQ 人';
+                    return;
+                }
                 insertIntoSillyTavern(`<!--${item.desc}.qqr-->`);
             });
 
@@ -762,8 +777,8 @@
             deleteButton.addEventListener('click', (event) => {
                 event.stopPropagation();
                 if (!confirm(`确定删除 QQ 人「${item.desc}」?`)) return;
-                qqrData.splice(index, 1);
-                saveQqrData();
+                selectedItems.splice(index, 1);
+                saveQqrCollections();
                 renderQqrGrid();
                 if (qqrStatus) qqrStatus.textContent = `已删除「${item.desc}」`;
             });
@@ -772,19 +787,75 @@
             qqrGrid.appendChild(card);
         });
     }
-    function saveQqrData() {
-        getSettings().qqrData = qqrData;
+    function renderQqrCollectionSelect() {
+        if (!qqrCollectionSelect) return;
+        qqrCollectionSelect.innerHTML = '';
+        const names = Object.keys(qqrCollections);
+        if (!names.length) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '暂无集合';
+            qqrCollectionSelect.appendChild(option);
+        } else {
+            names.forEach((name) => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name === activeQqrCollection ? `${name}（使用中）` : name;
+                qqrCollectionSelect.appendChild(option);
+            });
+            qqrCollectionSelect.value = qqrCollections[selectedQqrCollection]
+                ? selectedQqrCollection
+                : names[0];
+            selectedQqrCollection = qqrCollectionSelect.value;
+        }
+        const hasSelection = !!selectedQqrCollection;
+        if (qqrApplyBtn) qqrApplyBtn.disabled = !hasSelection || selectedQqrCollection === activeQqrCollection;
+        if (qqrRenameBtn) qqrRenameBtn.disabled = !hasSelection;
+        if (qqrDeleteCollectionBtn) qqrDeleteCollectionBtn.disabled = !hasSelection;
+    }
+    function saveQqrCollections() {
+        const settings = getSettings();
+        settings.qqrCollections = qqrCollections;
+        settings.activeQqrCollection = activeQqrCollection;
+        settings.lastQqrCollection = selectedQqrCollection;
         saveSettings();
         rebuildQqrLookup();
         reprocessQqrPlaceholders();
         applyFloatIcon(carrotButton);
     }
     function loadQqrData() {
-        const stored = getSettings().qqrData;
-        qqrData = Array.isArray(stored)
-            ? Array.from(buildQqrLookup(stored), ([desc, url]) => ({ desc, url }))
-            : [];
+        const settings = getSettings();
+        qqrCollections = Object.create(null);
+        Object.entries(settings.qqrCollections || {}).forEach(([name, items]) => {
+            if (!name.trim() || !Array.isArray(items)) return;
+            qqrCollections[name] = Array.from(
+                buildQqrLookup(items),
+                ([desc, url]) => ({ desc, url }),
+            );
+        });
+
+        let migrated = false;
+        if (!Object.keys(qqrCollections).length && Array.isArray(settings.qqrData) && settings.qqrData.length) {
+            const migratedItems = Array.from(
+                buildQqrLookup(settings.qqrData),
+                ([desc, url]) => ({ desc, url }),
+            );
+            if (migratedItems.length) {
+                qqrCollections['原有QQ人'] = migratedItems;
+                settings.qqrData = [];
+                migrated = true;
+            }
+        }
+
+        const names = Object.keys(qqrCollections);
+        activeQqrCollection = qqrCollections[settings.activeQqrCollection]
+            ? settings.activeQqrCollection
+            : names[0] || '';
+        selectedQqrCollection = qqrCollections[settings.lastQqrCollection]
+            ? settings.lastQqrCollection
+            : activeQqrCollection || names[0] || '';
         rebuildQqrLookup();
+        if (migrated) saveQqrCollections();
     }
     function parseQqrImport(text) {
         const parsed = [];
@@ -1025,29 +1096,84 @@
             if (qqrStatus) qqrStatus.textContent = '没有识别到有效的「描述:图片链接」';
             return;
         }
-        const merged = new Map(qqrData.map((item) => [item.desc, item.url]));
-        let updatedCount = 0;
-        parsed.forEach(({ desc, url }) => {
-            if (merged.has(desc)) updatedCount += 1;
-            merged.set(desc, url);
-        });
-        qqrData = Array.from(merged, ([desc, url]) => ({ desc, url }));
-        saveQqrData();
+        const suggestedName = selectedQqrCollection || '新QQ人集合';
+        const collectionName = prompt('请输入集合名称', suggestedName)?.trim();
+        if (!collectionName) return;
+        if (
+            Object.prototype.hasOwnProperty.call(qqrCollections, collectionName) &&
+            !confirm(`集合「${collectionName}」已存在，确定覆盖吗?`)
+        ) {
+            return;
+        }
+        const items = Array.from(
+            new Map(parsed.map(({ desc, url }) => [desc, url])),
+            ([desc, url]) => ({ desc, url }),
+        );
+        qqrCollections[collectionName] = items;
+        selectedQqrCollection = collectionName;
+        saveQqrCollections();
+        renderQqrCollectionSelect();
         renderQqrGrid();
         if (qqrImportInput) qqrImportInput.value = '';
-        const parts = [`已导入 ${parsed.length} 个`];
-        if (updatedCount) parts.push(`其中覆盖 ${updatedCount} 个同名项`);
+        const parts = [`已保存集合「${collectionName}」，共 ${items.length} 个 QQ 人`];
         if (invalidCount) parts.push(`忽略 ${invalidCount} 行无效内容`);
+        if (collectionName !== activeQqrCollection) parts.push('点击左侧“应用”后生效');
         if (qqrStatus) qqrStatus.textContent = parts.join('，');
     });
 
-    qqrClearBtn?.addEventListener('click', () => {
-        if (!qqrData.length) return;
-        if (!confirm('确定清空全部 QQ 人图片?')) return;
-        qqrData = [];
-        saveQqrData();
+    qqrCollectionSelect?.addEventListener('change', () => {
+        selectedQqrCollection = qqrCollectionSelect.value;
+        getSettings().lastQqrCollection = selectedQqrCollection;
+        saveSettings();
+        renderQqrCollectionSelect();
         renderQqrGrid();
-        if (qqrStatus) qqrStatus.textContent = '已清空全部 QQ 人';
+        if (qqrStatus) {
+            qqrStatus.textContent = selectedQqrCollection === activeQqrCollection
+                ? `正在使用「${selectedQqrCollection}」`
+                : `正在浏览「${selectedQqrCollection}」，点击“应用”后用于匹配`;
+        }
+    });
+
+    qqrApplyBtn?.addEventListener('click', () => {
+        if (!selectedQqrCollection || !qqrCollections[selectedQqrCollection]) return;
+        activeQqrCollection = selectedQqrCollection;
+        saveQqrCollections();
+        renderQqrCollectionSelect();
+        renderQqrGrid();
+        if (qqrStatus) qqrStatus.textContent = `已应用「${activeQqrCollection}」`;
+    });
+
+    qqrRenameBtn?.addEventListener('click', () => {
+        if (!selectedQqrCollection) return;
+        const oldName = selectedQqrCollection;
+        const newName = prompt('编辑集合名称', oldName)?.trim();
+        if (!newName || newName === oldName) return;
+        if (Object.prototype.hasOwnProperty.call(qqrCollections, newName)) {
+            alert('该集合名称已存在！');
+            return;
+        }
+        qqrCollections[newName] = qqrCollections[oldName];
+        delete qqrCollections[oldName];
+        selectedQqrCollection = newName;
+        if (activeQqrCollection === oldName) activeQqrCollection = newName;
+        saveQqrCollections();
+        renderQqrCollectionSelect();
+        renderQqrGrid();
+        if (qqrStatus) qqrStatus.textContent = `已将「${oldName}」重命名为「${newName}」`;
+    });
+
+    qqrDeleteCollectionBtn?.addEventListener('click', () => {
+        if (!selectedQqrCollection) return;
+        const deletedName = selectedQqrCollection;
+        if (!confirm(`确定删除 QQ 人集合「${deletedName}」?`)) return;
+        delete qqrCollections[deletedName];
+        const nextName = Object.keys(qqrCollections)[0] || '';
+        if (activeQqrCollection === deletedName) activeQqrCollection = nextName;
+        selectedQqrCollection = nextName;
+        saveQqrCollections();
+        renderQqrCollectionSelect();
+        renderQqrGrid();
+        if (qqrStatus) qqrStatus.textContent = `已删除集合「${deletedName}」`;
     });
 
     // --- 设置面板事件监听 ---
@@ -1285,7 +1411,13 @@
             afterProcess: runPostRenderProcessors,
         });
         renderCategories();
+        renderQqrCollectionSelect();
         renderQqrGrid();
+        if (qqrStatus && activeQqrCollection) {
+            qqrStatus.textContent = selectedQqrCollection === activeQqrCollection
+                ? `正在使用「${activeQqrCollection}」`
+                : `正在浏览「${selectedQqrCollection}」，当前使用「${activeQqrCollection}」`;
+        }
         loadButtonPosition();
         applyFloatIcon(carrotButton);
         applyFloatVisibility(carrotButton);

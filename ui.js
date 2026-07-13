@@ -217,10 +217,19 @@ export function createUI() {
             <section id="cip-settings-qqr" class="cip-settings-section">
                 <div class="cip-qqr-manager">
                     <p class="cip-settings-panel-note">每行一个，格式为「描述:图片链接」。正文中的 <code>&lt;!--描述.qqr--&gt;</code> 会自动显示对应 QQ 人。</p>
+                    <div class="cip-qqr-preset-bar">
+                        <button id="cip-qqr-apply-btn" type="button" title="应用选中的集合">应用</button>
+                        <select id="cip-qqr-collection-select"></select>
+                        <button id="cip-qqr-rename-btn" class="cip-preset-icon-btn" type="button" title="编辑集合名称">
+                            <i class="fa-solid fa-pencil"></i>
+                        </button>
+                        <button id="cip-qqr-delete-collection-btn" class="cip-preset-icon-btn" type="button" title="删除集合">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
                     <textarea id="cip-qqr-import-input" placeholder="开心:https://example.com/happy.png&#10;委屈:https://example.com/sad.png"></textarea>
                     <div class="cip-qqr-actions">
-                        <button id="cip-qqr-import-btn" type="button">导入并保存</button>
-                        <button id="cip-qqr-clear-btn" type="button">清空全部</button>
+                        <button id="cip-qqr-import-btn" type="button">保存为集合</button>
                     </div>
                     <div id="cip-qqr-status" class="cip-settings-panel-note"></div>
                     <div id="cip-qqr-grid" class="cip-qqr-grid"></div>

@@ -15,6 +15,9 @@ const DEFAULT_SETTINGS = {
     regexEnabled: true,
     stickerData: {},
     qqrData: [],
+    qqrCollections: {},
+    activeQqrCollection: '',
+    lastQqrCollection: '',
     themeData: {},
     lastActiveTheme: '',
     avatarProfiles: {},
@@ -59,6 +62,9 @@ const DEFAULT_SETTINGS = {
 const legacyDefinitions = {
     cip_sticker_data: ['stickerData', parseJson, stringifyJson],
     cip_qqr_data_v1: ['qqrData', parseJson, stringifyJson],
+    cip_qqr_collections_v1: ['qqrCollections', parseJson, stringifyJson],
+    cip_qqr_active_collection_v1: ['activeQqrCollection', parseString, stringifyString],
+    cip_qqr_last_collection_v1: ['lastQqrCollection', parseString, stringifyString],
     cip_theme_data_v1: ['themeData', parseJson, stringifyJson],
     cip_last_active_theme_v1: ['lastActiveTheme', parseString, stringifyString],
     cip_avatar_profiles_v1: ['avatarProfiles', parseJson, stringifyJson],
@@ -158,6 +164,7 @@ function normalizeSettingsShape(settings) {
     }
     if (!isPlainObject(settings.stickerData)) settings.stickerData = {};
     if (!Array.isArray(settings.qqrData)) settings.qqrData = [];
+    if (!isPlainObject(settings.qqrCollections)) settings.qqrCollections = {};
     if (!isPlainObject(settings.themeData)) settings.themeData = {};
     if (!isPlainObject(settings.avatarProfiles)) settings.avatarProfiles = {};
     if (!isPlainObject(settings.frameProfiles)) settings.frameProfiles = {};
