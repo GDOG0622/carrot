@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.30';
+    const V = 'v=8.0.31';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -18,6 +18,12 @@
         replaceStickerPlaceholders: replaceStickerPlaceholdersCore,
         reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
     } = await import(`./stickers.js?${V}`);
+    const {
+        buildQqrLookup,
+        resolveQqrImageReference,
+        replaceQqrPlaceholders: replaceQqrPlaceholdersCore,
+        reprocessQqrPlaceholders: reprocessQqrPlaceholdersCore,
+    } = await import(`./qqr.js?${V}`);
     const { createUnsplashProcessor } = await import(`./unsplash.js?${V}`);
     const { initFormatRenderer } = await import(`./format-renderer.js?${V}`);
     const { initBackend } = await import(`./backend.js?${V}`);
@@ -67,7 +73,9 @@
     let floatOpacity = getSettings().floatOpacity || 1;
 
     function applyFloatIcon(button) {
-        const iconUrl = floatIconUrl || DEFAULT_FLOAT_ICON_URL;
+        const iconUrl =
+            resolveQqrImageReference(floatIconUrl, qqrLookup) ||
+            DEFAULT_FLOAT_ICON_URL;
         button.textContent = '';
         button.style.width = `${floatSize}px`;
         button.style.height = `${floatSize}px`;
@@ -219,6 +227,11 @@
         },
     };
     const bubbleStatus = get('cip-bubble-status');
+    const qqrImportInput = get('cip-qqr-import-input');
+    const qqrImportBtn = get('cip-qqr-import-btn');
+    const qqrClearBtn = get('cip-qqr-clear-btn');
+    const qqrStatus = get('cip-qqr-status');
+    const qqrGrid = get('cip-qqr-grid');
 
     let themeApi;
     let avatarApi;
@@ -431,6 +444,8 @@
     let currentTextSubType = 'plain',
         stickerData = {},
         stickerLookup = new Map(),
+        qqrData = [],
+        qqrLookup = new Map(),
         currentStickerCategory = '',
         expressionMode = 'emoji',
         pendingImageFile = null;
@@ -656,12 +671,14 @@
         const chatContainer = document.getElementById('chat');
         if (!chatContainer) return;
         chatContainer.querySelectorAll('.mes_text').forEach((element) => {
+            replaceQqrPlaceholders(element);
             replaceStickerPlaceholders(element);
         });
     }
 
     function runPostRenderProcessors(element) {
         if (!element) return;
+        replaceQqrPlaceholders(element);
         replaceStickerPlaceholders(element);
         unsplashProcessor?.processMessageElement?.(element);
     }
@@ -695,6 +712,100 @@
     function loadStickerData() {
         stickerData = getSettings().stickerData || {};
         rebuildStickerLookup();
+    }
+    function rebuildQqrLookup() {
+        qqrLookup = buildQqrLookup(qqrData);
+    }
+    function replaceQqrPlaceholders(element) {
+        return replaceQqrPlaceholdersCore({
+            element,
+            qqrLookup,
+            replacePlaceholderWithNode,
+            documentRef: document,
+        });
+    }
+    function reprocessQqrPlaceholders() {
+        reprocessQqrPlaceholdersCore({
+            qqrLookup,
+            replacePlaceholderWithNode,
+            documentRef: document,
+        });
+    }
+    function renderQqrGrid() {
+        if (!qqrGrid) return;
+        qqrGrid.innerHTML = '';
+        if (!qqrData.length) {
+            qqrGrid.innerHTML = '<div class="cip-qqr-empty">还没有导入 QQ 人</div>';
+            return;
+        }
+        qqrData.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'cip-qqr-card';
+            card.title = `点击插入 <!--${item.desc}.qqr-->`;
+            card.addEventListener('click', () => {
+                insertIntoSillyTavern(`<!--${item.desc}.qqr-->`);
+            });
+
+            const image = document.createElement('img');
+            image.src = item.url;
+            image.alt = item.desc;
+            image.loading = 'lazy';
+
+            const label = document.createElement('span');
+            label.textContent = item.desc;
+
+            const deleteButton = document.createElement('button');
+            deleteButton.type = 'button';
+            deleteButton.className = 'cip-qqr-delete';
+            deleteButton.title = `删除「${item.desc}」`;
+            deleteButton.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+            deleteButton.addEventListener('click', (event) => {
+                event.stopPropagation();
+                if (!confirm(`确定删除 QQ 人「${item.desc}」?`)) return;
+                qqrData.splice(index, 1);
+                saveQqrData();
+                renderQqrGrid();
+                if (qqrStatus) qqrStatus.textContent = `已删除「${item.desc}」`;
+            });
+
+            card.append(image, label, deleteButton);
+            qqrGrid.appendChild(card);
+        });
+    }
+    function saveQqrData() {
+        getSettings().qqrData = qqrData;
+        saveSettings();
+        rebuildQqrLookup();
+        reprocessQqrPlaceholders();
+        applyFloatIcon(carrotButton);
+    }
+    function loadQqrData() {
+        const stored = getSettings().qqrData;
+        qqrData = Array.isArray(stored)
+            ? Array.from(buildQqrLookup(stored), ([desc, url]) => ({ desc, url }))
+            : [];
+        rebuildQqrLookup();
+    }
+    function parseQqrImport(text) {
+        const parsed = [];
+        let invalidCount = 0;
+        String(text || '').split(/\r?\n/).forEach((rawLine) => {
+            const line = rawLine.trim();
+            if (!line) return;
+            const separator = line.indexOf(':');
+            if (separator <= 0) {
+                invalidCount += 1;
+                return;
+            }
+            const desc = line.slice(0, separator).trim().replace(/\.qqr$/i, '').trim();
+            const url = line.slice(separator + 1).trim();
+            if (!desc || /--|[<>]/.test(desc) || !/^(?:https?:\/\/|\/)/i.test(url)) {
+                invalidCount += 1;
+                return;
+            }
+            parsed.push({ desc, url });
+        });
+        return { parsed, invalidCount };
     }
     function toggleModal(t, o) {
         get(t).classList.toggle('hidden', !o);
@@ -906,6 +1017,37 @@
             if (currentStickerCategory === category) renderStickers(category);
             toggleModal('cip-add-stickers-modal', false);
         } else alert('未能解析任何有效的表情包信息。');
+    });
+
+    qqrImportBtn?.addEventListener('click', () => {
+        const { parsed, invalidCount } = parseQqrImport(qqrImportInput?.value);
+        if (!parsed.length) {
+            if (qqrStatus) qqrStatus.textContent = '没有识别到有效的「描述:图片链接」';
+            return;
+        }
+        const merged = new Map(qqrData.map((item) => [item.desc, item.url]));
+        let updatedCount = 0;
+        parsed.forEach(({ desc, url }) => {
+            if (merged.has(desc)) updatedCount += 1;
+            merged.set(desc, url);
+        });
+        qqrData = Array.from(merged, ([desc, url]) => ({ desc, url }));
+        saveQqrData();
+        renderQqrGrid();
+        if (qqrImportInput) qqrImportInput.value = '';
+        const parts = [`已导入 ${parsed.length} 个`];
+        if (updatedCount) parts.push(`其中覆盖 ${updatedCount} 个同名项`);
+        if (invalidCount) parts.push(`忽略 ${invalidCount} 行无效内容`);
+        if (qqrStatus) qqrStatus.textContent = parts.join('，');
+    });
+
+    qqrClearBtn?.addEventListener('click', () => {
+        if (!qqrData.length) return;
+        if (!confirm('确定清空全部 QQ 人图片?')) return;
+        qqrData = [];
+        saveQqrData();
+        renderQqrGrid();
+        if (qqrStatus) qqrStatus.textContent = '已清空全部 QQ 人';
     });
 
     // --- 设置面板事件监听 ---
@@ -1130,6 +1272,7 @@
     });
     function init() {
         loadStickerData();
+        loadQqrData();
         unsplashProcessor = createUnsplashProcessor({
             replacePlaceholderWithNode,
             getUnsplashAccessKey: () => unsplashAccessKey,
@@ -1142,6 +1285,7 @@
             afterProcess: runPostRenderProcessors,
         });
         renderCategories();
+        renderQqrGrid();
         loadButtonPosition();
         applyFloatIcon(carrotButton);
         applyFloatVisibility(carrotButton);

@@ -757,8 +757,8 @@ export function injectExtensionDrawer({
                         </label>
                     </div>
                     <div class="cip-ext-field">
-                        <small>浮标图片直链（填入后浮标显示该图）</small>
-                        <input type="text" id="cip-ext-float-icon" class="text_pole" placeholder="留空使用默认图标" value="${floatIconUrl}">
+                        <small>浮标图片（支持图片直链或 &lt;!--描述.qqr--&gt;）</small>
+                        <input type="text" id="cip-ext-float-icon" class="text_pole" placeholder="图片链接 / <!--描述.qqr-->；留空使用默认图标" value="${floatIconUrl}">
                     </div>
                     <div class="cip-ext-range-field">
                         <label>
@@ -1474,7 +1474,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.30';
+            const FE_VERSION = '8.0.31';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

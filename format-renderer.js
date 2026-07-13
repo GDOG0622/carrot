@@ -595,6 +595,33 @@ function createTextLine(documentRef, token) {
     return line;
 }
 
+function createQqrLine(documentRef, token) {
+    const line = documentRef.createElement('div');
+    line.className = 'carrot-render-text-line carrot-render-qqr-line';
+    const source = String(token.body || '');
+    const regex = /<!--\s*([^<>]+?)\.qqr\s*-->/gi;
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(source))) {
+        if (match.index > lastIndex) {
+            line.appendChild(documentRef.createTextNode(source.slice(lastIndex, match.index)));
+        }
+        const description = match[1].trim();
+        if (description && !/--|[<>]/.test(description)) {
+            const placeholder = documentRef.createElement('span');
+            placeholder.className = 'carrot-qqr-placeholder';
+            placeholder.dataset.carrotQqrPlaceholder = description;
+            placeholder.setAttribute('aria-hidden', 'true');
+            line.appendChild(placeholder);
+        }
+        lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < source.length) {
+        line.appendChild(documentRef.createTextNode(source.slice(lastIndex)));
+    }
+    return line;
+}
+
 function createHtmlBlock(documentRef, token, side) {
     const line = documentRef.createElement('div');
     line.className = `carrot-render-html-block carrot-render-html-${side}`;
@@ -716,6 +743,13 @@ function parseHtmlBlock(lines, startIndex) {
 }
 
 function parseLine(line, isUser) {
+    if (/<!--\s*([^<>]+?)\.qqr\s*-->/i.test(line)) {
+        return {
+            type: 'qqrLine',
+            body: line,
+        };
+    }
+
     if (isUser) {
         const carrotImage = line.match(/^\s*<carrot-image\b([^>]*)>([\s\S]*?)<\/carrot-image>\s*$/i);
         if (carrotImage) {
@@ -911,6 +945,8 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             rendered.appendChild(createRecallLine(documentRef, token));
         } else if (token.type === 'linkCard') {
             rendered.appendChild(createLinkCard(documentRef, token, side));
+        } else if (token.type === 'qqrLine') {
+            rendered.appendChild(createQqrLine(documentRef, token));
         } else {
             rendered.appendChild(createTextLine(documentRef, token));
         }

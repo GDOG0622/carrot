@@ -210,7 +210,8 @@
 }
 #cip-main-input,
 #cip-voice-message,
-#cip-new-stickers-input {
+#cip-new-stickers-input,
+#cip-qqr-import-input {
     width: calc(100% - 20px);
     min-height: 80px;
     padding: 10px;
@@ -1343,6 +1344,101 @@ emoji-picker {
 }
 .cip-sync-actions button:hover {
     background-color: var(--cip-active-bg-color);
+}
+.cip-qqr-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+}
+#cip-qqr-import-input {
+    width: 100%;
+    min-height: 96px;
+    box-sizing: border-box;
+    color: var(--cip-text-color);
+}
+.cip-qqr-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+.cip-qqr-actions button {
+    padding: 6px 16px;
+    font-size: 13px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--cip-text-color);
+    cursor: pointer;
+}
+.cip-qqr-actions button:hover {
+    background-color: var(--cip-active-bg-color);
+}
+#cip-qqr-clear-btn {
+    color: var(--cip-delete-color);
+}
+.cip-qqr-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+    gap: 10px;
+}
+.cip-qqr-card {
+    position: relative;
+    min-width: 0;
+    padding: 8px 6px 6px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    text-align: center;
+    cursor: pointer;
+}
+.cip-qqr-card img {
+    display: block;
+    width: 100%;
+    height: 86px;
+    object-fit: contain;
+    margin-bottom: 5px;
+}
+.cip-qqr-card span {
+    display: block;
+    overflow: hidden;
+    color: var(--cip-text-color);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cip-qqr-delete {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    cursor: pointer;
+}
+.cip-qqr-empty {
+    grid-column: 1 / -1;
+    padding: 18px 8px;
+    color: var(--cip-text-color);
+    font-size: 12px;
+    opacity: 0.65;
+    text-align: center;
+}
+.mes_text img.carrot-qqr-image {
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: min(160px, 55vw) !important;
+    max-height: 220px !important;
+    object-fit: contain !important;
+    border-radius: 0 !important;
+}
+.mes_text .carrot-qqr-placeholder {
+    display: none !important;
 }
 .cip-bubble-manager {
     display: flex;

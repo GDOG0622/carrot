@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = {
     floatOpacity: 1,
     regexEnabled: true,
     stickerData: {},
+    qqrData: [],
     themeData: {},
     lastActiveTheme: '',
     avatarProfiles: {},
@@ -57,6 +58,7 @@ const DEFAULT_SETTINGS = {
 
 const legacyDefinitions = {
     cip_sticker_data: ['stickerData', parseJson, stringifyJson],
+    cip_qqr_data_v1: ['qqrData', parseJson, stringifyJson],
     cip_theme_data_v1: ['themeData', parseJson, stringifyJson],
     cip_last_active_theme_v1: ['lastActiveTheme', parseString, stringifyString],
     cip_avatar_profiles_v1: ['avatarProfiles', parseJson, stringifyJson],
@@ -155,6 +157,7 @@ function normalizeSettingsShape(settings) {
         }
     }
     if (!isPlainObject(settings.stickerData)) settings.stickerData = {};
+    if (!Array.isArray(settings.qqrData)) settings.qqrData = [];
     if (!isPlainObject(settings.themeData)) settings.themeData = {};
     if (!isPlainObject(settings.avatarProfiles)) settings.avatarProfiles = {};
     if (!isPlainObject(settings.frameProfiles)) settings.frameProfiles = {};

@@ -85,6 +85,7 @@ export function createUI() {
             <nav id="cip-settings-tabs">
                 <button class="cip-settings-tab active" data-target="theme">主题</button>
                 <button class="cip-settings-tab" data-target="avatar">头像</button>
+                <button class="cip-settings-tab" data-target="qqr">QQ人</button>
                 <button class="cip-settings-tab" data-target="bubble">气泡</button>
                 <button class="cip-settings-tab" data-target="sync">同步</button>
             </nav>
@@ -213,6 +214,18 @@ export function createUI() {
                     </div>
                 </div>
             </section>
+            <section id="cip-settings-qqr" class="cip-settings-section">
+                <div class="cip-qqr-manager">
+                    <p class="cip-settings-panel-note">每行一个，格式为「描述:图片链接」。正文中的 <code>&lt;!--描述.qqr--&gt;</code> 会自动显示对应 QQ 人。</p>
+                    <textarea id="cip-qqr-import-input" placeholder="开心:https://example.com/happy.png&#10;委屈:https://example.com/sad.png"></textarea>
+                    <div class="cip-qqr-actions">
+                        <button id="cip-qqr-import-btn" type="button">导入并保存</button>
+                        <button id="cip-qqr-clear-btn" type="button">清空全部</button>
+                    </div>
+                    <div id="cip-qqr-status" class="cip-settings-panel-note"></div>
+                    <div id="cip-qqr-grid" class="cip-qqr-grid"></div>
+                </div>
+            </section>
             <section id="cip-settings-bubble" class="cip-settings-section">
                 <div class="cip-bubble-manager">
                     <div class="cip-preset-bar">
@@ -268,7 +281,7 @@ export function createUI() {
                 </div>
             </section>
             <section id="cip-settings-sync" class="cip-settings-section">
-                <p class="cip-settings-panel-note">导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、字体、Unsplash、美化渲染等）</p>
+                <p class="cip-settings-panel-note">导出/导入扩展全部配置（主题、头像、头像框、QQ人、表情包、提示音、字体、Unsplash、美化渲染等）</p>
                 <input type="file" id="cip-ext-import-file" accept=".json" hidden>
                 <div class="cip-sync-actions">
                     <button id="cip-ext-export-btn">导出配置</button>

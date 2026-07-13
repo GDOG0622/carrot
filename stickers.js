@@ -30,6 +30,7 @@ export function replaceStickerPlaceholders({
         let description = match[1] ? match[1].trim() : '';
         if (!description) continue;
         if (description.startsWith('http')) continue;
+        if (/\.qqr$/i.test(description)) continue;
         let lookupKey = description;
         let url = stickerLookup.get(lookupKey);
         if (!url) {
