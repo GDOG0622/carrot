@@ -72,7 +72,7 @@ function findSourcePluginDir() {
 function copyDirContents(source, dest) {
     fs.mkdirSync(dest, { recursive: true });
     for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
-        if (entry.name === 'covers' || entry.name === 'uploads') continue;
+        if (entry.name === 'covers' || entry.name === 'uploads' || entry.name === 'push-data') continue;
         const from = path.join(source, entry.name);
         const to = path.join(dest, entry.name);
         if (entry.isDirectory()) {
@@ -169,6 +169,13 @@ async function init(router) {
     const uploadCache = require('./upload-cache');
     router.post('/uploads', express.raw({ type: 'image/*', limit: '12mb' }), uploadCache.upload);
     router.get('/uploads/:filename', uploadCache.serve);
+
+    // Web Push 后端推送（浏览器被杀后仍可送达系统通知）
+    const push = require('./push');
+    router.get('/push/public-key', push.publicKey);
+    router.post('/push/subscribe', push.subscribe);
+    router.post('/push/unsubscribe', push.unsubscribe);
+    router.post('/push/notify', push.notify);
 
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot；运行环境 ${runtime.manager || '裸 node'}`);
     console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，可在 carrot API 面板点击“同步后端”`);

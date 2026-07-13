@@ -517,6 +517,15 @@ function initNotificationSounds() {
             played: false,
             lastErrorAt: 0,
         };
+        // 后端 Web Push：页面在后台/失焦时才推，避免人在屏幕前还弹系统通知
+        const sendWebPushIfEnabled = (title, body) => {
+            const s = getSettings();
+            if (!s.notifWebPush) return;
+            if (!document.hidden && document.hasFocus()) return;
+            import('./push-client.js')
+                .then((m) => m.sendBackendPush(title, body))
+                .catch(() => {});
+        };
         const playSuccess = () => {
             const s = getSettings();
             if (run.played) return;
@@ -527,6 +536,7 @@ function initNotificationSounds() {
             if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
                 showSystemNotification(s.notifSuccessTitle || 'AI reply complete', s.notifSuccessBody || '');
             }
+            sendWebPushIfEnabled(s.notifSuccessTitle || 'AI 回复完成', s.notifSuccessBody || '');
         };
         const playFail = () => {
             const s = getSettings();
@@ -538,6 +548,7 @@ function initNotificationSounds() {
             if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
                 showSystemNotification(s.notifFailTitle || 'AI reply interrupted', s.notifFailBody || '');
             }
+            sendWebPushIfEnabled(s.notifFailTitle || 'AI 回复中断', s.notifFailBody || '');
         };
         const markFailed = () => {
             if (!run.active) return;
@@ -728,6 +739,18 @@ export function injectExtensionDrawer({
                             <input type="checkbox" id="cip-ext-notif-keep-alive" ${s.notifKeepAlive ? 'checked' : ''}>
                             <span>后台保活（后台也播放声音）</span>
                         </label>
+                        <label class="cip-ext-label checkbox_label">
+                            <input type="checkbox" id="cip-ext-notif-webpush" ${s.notifWebPush ? 'checked' : ''}>
+                            <span>后端推送（Web Push，浏览器被杀后仍可送达）</span>
+                        </label>
+                    </div>
+                    <div class="cip-ext-field">
+                        <div class="cip-ext-notif-perm-row">
+                            <button id="cip-ext-notif-webpush-test" class="menu_button">测试后端推送</button>
+                        </div>
+                        <div style="font-size:.78em;color:#888;margin-top:.3em;line-height:1.5;">
+                            由 carrot 后端经系统推送通道送达，需要 HTTPS 域名下开启一次。iOS 需 16.4+ 且先「分享 → 添加到主屏幕」，从主屏幕图标打开酒馆后再开启。
+                        </div>
                     </div>
                     <div class="cip-ext-field">
                         <small>成功推送文案</small>
@@ -1178,6 +1201,53 @@ function bindPromptPane(wrapper, s) {
         }
     });
 
+    const notifWebPushCb = document.getElementById('cip-ext-notif-webpush');
+    const notifWebPushTestBtn = document.getElementById('cip-ext-notif-webpush-test');
+
+    notifWebPushCb?.addEventListener('change', async () => {
+        if (notifWebPushCb.checked) {
+            notifWebPushCb.disabled = true;
+            try {
+                const { enableBackendPush } = await import('./push-client.js');
+                const result = await enableBackendPush();
+                s.notifWebPush = true;
+                saveSettings();
+                setSoundStatus(`✅ 后端推送已开启（当前 ${result.count || 1} 个设备已订阅）`);
+            } catch (e) {
+                notifWebPushCb.checked = false;
+                s.notifWebPush = false;
+                saveSettings();
+                setSoundStatus(`❌ ${e?.message || '开启后端推送失败'}`);
+            } finally {
+                notifWebPushCb.disabled = false;
+            }
+        } else {
+            s.notifWebPush = false;
+            saveSettings();
+            try {
+                const { disableBackendPush } = await import('./push-client.js');
+                await disableBackendPush();
+            } catch {}
+            setSoundStatus('后端推送已关闭（本设备订阅已注销）');
+        }
+    });
+
+    notifWebPushTestBtn?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        notifWebPushTestBtn.disabled = true;
+        try {
+            const { sendBackendPush } = await import('./push-client.js');
+            const result = await sendBackendPush('carrot 测试推送', '收到这条说明后端推送链路正常', 'carrot-push-test');
+            if (result?.ok && result.sent > 0) {
+                setSoundStatus(`✅ 已推送到 ${result.sent} 个设备${result.removed ? `（清理了 ${result.removed} 个失效订阅）` : ''}`);
+            } else {
+                setSoundStatus(`❌ ${result?.error || '推送失败，请确认后端已同步到 v8.0.23+ 且已开启后端推送'}`);
+            }
+        } finally {
+            notifWebPushTestBtn.disabled = false;
+        }
+    });
+
     notifSuccessTitleInput?.addEventListener('change', () => {
         s.notifSuccessTitle = notifSuccessTitleInput.value.trim();
         saveSettings();
@@ -1301,7 +1371,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.22';
+            const FE_VERSION = '8.0.23';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

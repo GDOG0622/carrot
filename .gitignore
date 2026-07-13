@@ -1,0 +1,5 @@
+# 后端运行时数据（VAPID 密钥 / 推送订阅 / 缓存），不进版本库
+plugin/push-data/
+plugin/covers/
+plugin/uploads/
+node_modules/

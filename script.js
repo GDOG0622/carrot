@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.22';
+    const V = 'v=8.0.23';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -116,6 +116,12 @@
 
         // v8.0: 启动后探测 backend plugin，不通时弹引导
         initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
+        // v8.0.23: 开了后端推送的设备，启动时静默恢复订阅（清缓存会注销 Service Worker）
+        if (getSettings().notifWebPush) {
+            import(`./push-client.js?${V}`)
+                .then((m) => m.resyncBackendPush())
+                .catch(() => {});
+        }
         // v8.0: 安装 send hook，拦截发送时解析链接
         initSendHook();
         // 安装语音输入按钮逻辑

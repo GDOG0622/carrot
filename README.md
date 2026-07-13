@@ -1,7 +1,7 @@
 # 🥕 胡萝卜快速输入面板 (Carrot Input Panel)
 
 > SillyTavern 扩展 — 快速插入格式化内容 & 聊天增强工具箱  
-> By **BunnY** · 搭配 Bunnyhole Lab 食用 · v8.0.22
+> By **BunnY** · 搭配 Bunnyhole Lab 食用 · v8.0.23
 
 一个功能丰富的 SillyTavern 扩展，提供快速输入面板、内置正则替换引擎、头像框装饰、主题自定义、定时指令等多种实用功能。
 
@@ -171,6 +171,23 @@ v8.0.21 起，carrot 设置面板 → API 里有：
 
 Docker、Termux、Windows、裸 `node server.js` 无法安全判断是否会自动拉起，所以只提供同步，重启请按你的部署方式手动完成。
 
+### 后端推送（Web Push）
+
+v8.0.23 起，扩展设置 → 提示 里有「后端推送」开关，与「后台保活」（静音音频）各自独立：
+
+- **后台保活**：靠静音音频防止浏览器冻结后台标签页，保证提示音能播出来。标签页必须活着。
+- **后端推送**：AI 生成结束时，前端通知 carrot 后端，后端经系统推送通道（Google FCM / Apple APNs / Mozilla Push，按浏览器自动分流）把通知送到设备。**通知的送达不依赖酒馆标签页存活**——已订阅的设备即使浏览器被划掉也能收到。
+
+使用要点：
+
+1. 开启订阅必须在 **HTTPS 域名**（或 localhost）下进行，每台要收通知的设备各开一次；订阅完成后，用 HTTP IP 直连聊天也能正常触发推送
+2. **iOS** 需 16.4+，且必须先 Safari「分享 → 添加到主屏幕」，从主屏幕图标打开酒馆后再开启
+3. Android Chrome / 桌面 Chrome/Edge/Firefox 直接可用
+4. 点「测试后端推送」可验证链路；推送会发给所有已订阅设备，失效订阅自动清理
+5. VAPID 密钥和订阅存在 `<酒馆根>/plugins/carrot/push-data/`，「同步后端」不会覆盖它
+
+注意：推送由前端在生成结束时触发。若生成过程中浏览器被完全杀掉，流式生成本身也会中断，此时没有"完成"事件可推——后端推送解决的是**后台标签页被冻结/通知打不出来**的问题，配合「后台保活」使用效果最佳。
+
 ### 语音输入
 
 在 carrot 面板底部「撤回」左侧点击麦克风开始录音，再点一次停止，识别文本会插入酒馆主输入框。
@@ -236,6 +253,8 @@ carrot/
 ├── link-parser.js         # v8.0 URL 提取 + 调 plugin /link-preview
 ├── image-upload.js        # v8.0.21 carrot 图片上传
 ├── link-vision.js         # v8.0.21 链接封面 / carrot 图片多模态注入
+├── push-client.js         # v8.0.23 Web Push 订阅管理 / 触发后端推送
+├── push-sw.js             # v8.0.23 推送 Service Worker（收推送弹通知）
 ├── stickers.js            # 表情包逻辑
 ├── unsplash.js            # Unsplash 配图
 ├── selects.js             # 渲染辅助
@@ -247,6 +266,8 @@ carrot/
     ├── link-preview.js    # 链接解析（OG/微信/小红书/抖音 + Jina 兜底）
     ├── cover-cache.js     # 封面下载 + LRU + 静态服务
     ├── upload-cache.js    # carrot 图片上传 + LRU + 静态服务
+    ├── web-push.js        # v8.0.23 零依赖 Web Push 协议（VAPID + aes128gcm）
+    ├── push.js            # v8.0.23 推送订阅存储 + /push/* 路由
     └── install/           # 安装/卸载脚本（Win/Linux/Mac/Termux）
 ```
 
