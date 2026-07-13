@@ -295,9 +295,10 @@ async function requestNotifPermission() {
     }
 }
 
-function showSystemNotification(title, body) {
-    if (!('Notification' in window)) return;
-    if (Notification.permission !== 'granted') return;
+/** 弹本地系统通知。返回是否成功弹出（供后端推送兜底判断） */
+async function showSystemNotification(title, body) {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission !== 'granted') return false;
     const safeTitle = title || 'Carrot';
     const safeBody = body || '';
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -324,27 +325,22 @@ function showSystemNotification(title, body) {
         }
         return notification;
     };
-    (async () => {
-        try {
-            const registration = await navigator.serviceWorker?.getRegistration?.();
-            if (registration?.showNotification && isMobile) {
-                await registration.showNotification(safeTitle, options);
-                return;
-            }
-            sendRegular();
-        } catch (error) {
-            try {
-                sendRegular();
-            } catch (fallbackError) {
-                console.warn('Carrot: system notification failed', fallbackError);
-            }
-        }
-    })();
-    return;
     try {
-        new Notification(title || '胡萝卜提示', { body: body || '' });
-    } catch (e) {
-        console.warn('胡萝卜插件：系统通知失败', e);
+        const registration = await navigator.serviceWorker?.getRegistration?.();
+        if (registration?.showNotification && isMobile) {
+            await registration.showNotification(safeTitle, options);
+            return true;
+        }
+        sendRegular();
+        return true;
+    } catch (error) {
+        try {
+            sendRegular();
+            return true;
+        } catch (fallbackError) {
+            console.warn('Carrot: system notification failed', fallbackError);
+            return false;
+        }
     }
 }
 
@@ -517,14 +513,20 @@ function initNotificationSounds() {
             played: false,
             lastErrorAt: 0,
         };
-        // 后端 Web Push：页面在后台/失焦时才推，避免人在屏幕前还弹系统通知
-        const sendWebPushIfEnabled = (title, body) => {
+        // 系统通知：页面在后台/失焦时才发。自动去重——本地通知优先（即时），
+        // 本地没开或弹出失败时，才走后端 Web Push 兜底，两者不会重复弹。
+        const notifyUser = async (title, body) => {
             const s = getSettings();
-            if (!s.notifWebPush) return;
             if (!document.hidden && document.hasFocus()) return;
-            import('./push-client.js')
-                .then((m) => m.sendBackendPush(title, body))
-                .catch(() => {});
+            let localShown = false;
+            if (s.notifPopupEnabled) {
+                localShown = await showSystemNotification(title, body);
+            }
+            if (s.notifWebPush && !localShown) {
+                import('./push-client.js')
+                    .then((m) => m.sendBackendPush(title, body))
+                    .catch(() => {});
+            }
         };
         const playSuccess = () => {
             const s = getSettings();
@@ -533,10 +535,7 @@ function initNotificationSounds() {
             if (s.notifSuccess) {
                 playSound(s.notifSuccess);
             }
-            if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
-                showSystemNotification(s.notifSuccessTitle || 'AI reply complete', s.notifSuccessBody || '');
-            }
-            sendWebPushIfEnabled(s.notifSuccessTitle || 'AI 回复完成', s.notifSuccessBody || '');
+            notifyUser(s.notifSuccessTitle || 'AI 回复完成', s.notifSuccessBody || '');
         };
         const playFail = () => {
             const s = getSettings();
@@ -545,10 +544,7 @@ function initNotificationSounds() {
             if (s.notifFail) {
                 playSound(s.notifFail);
             }
-            if (s.notifPopupEnabled && (document.hidden || !document.hasFocus())) {
-                showSystemNotification(s.notifFailTitle || 'AI reply interrupted', s.notifFailBody || '');
-            }
-            sendWebPushIfEnabled(s.notifFailTitle || 'AI 回复中断', s.notifFailBody || '');
+            notifyUser(s.notifFailTitle || 'AI 回复中断', s.notifFailBody || '');
         };
         const markFailed = () => {
             if (!run.active) return;
@@ -749,7 +745,7 @@ export function injectExtensionDrawer({
                             <button id="cip-ext-notif-webpush-test" class="menu_button">测试后端推送</button>
                         </div>
                         <div style="font-size:.78em;color:#888;margin-top:.3em;line-height:1.5;">
-                            由 carrot 后端经系统推送通道送达，需要 HTTPS 域名下开启一次。iOS 需 16.4+ 且先「分享 → 添加到主屏幕」，从主屏幕图标打开酒馆后再开启。
+                            由 carrot 后端经系统推送通道送达，需要 HTTPS 域名下开启一次。iOS 需 16.4+ 且先「分享 → 添加到主屏幕」，从主屏幕图标打开酒馆后再开启。可与「后台时弹出系统通知」同开，自动去重：本地通知优先，弹不出来时后端推送兜底。
                         </div>
                     </div>
                     <div class="cip-ext-field">
@@ -1371,7 +1367,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.23';
+            const FE_VERSION = '8.0.24';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
