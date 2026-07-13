@@ -216,7 +216,7 @@ export function createUI() {
             </section>
             <section id="cip-settings-qqr" class="cip-settings-section">
                 <div class="cip-qqr-manager">
-                    <p class="cip-settings-panel-note">每行一个，格式为「描述:图片链接」。正文中的 <code>&lt;!--描述.qqr--&gt;</code> 会自动显示对应 QQ 人。</p>
+                    <p class="cip-settings-panel-note">每行一个，格式为「描述:图片链接」。只读取最后一条消息中的 <code>&lt;!--描述.qqr--&gt;</code>，从当前应用集合查找图片并自动切换浮标。</p>
                     <div class="cip-qqr-preset-bar">
                         <button id="cip-qqr-apply-btn" type="button" title="应用选中的集合">应用</button>
                         <select id="cip-qqr-collection-select"></select>

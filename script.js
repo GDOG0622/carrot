@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.32';
+    const V = 'v=8.0.33';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -20,9 +20,8 @@
     } = await import(`./stickers.js?${V}`);
     const {
         buildQqrLookup,
+        findLatestQqrImage,
         resolveQqrImageReference,
-        replaceQqrPlaceholders: replaceQqrPlaceholdersCore,
-        reprocessQqrPlaceholders: reprocessQqrPlaceholdersCore,
     } = await import(`./qqr.js?${V}`);
     const { createUnsplashProcessor } = await import(`./unsplash.js?${V}`);
     const { initFormatRenderer } = await import(`./format-renderer.js?${V}`);
@@ -69,11 +68,13 @@
     // --- 浮标显隐与自定义图标 ---
     let floatVisible = getSettings().floatVisible !== false;
     let floatIconUrl = getSettings().floatIconUrl || '';
+    let floatQqrOverrideUrl = '';
     let floatSize = getSettings().floatSize || 30;
     let floatOpacity = getSettings().floatOpacity || 1;
 
     function applyFloatIcon(button) {
         const iconUrl =
+            floatQqrOverrideUrl ||
             resolveQqrImageReference(floatIconUrl, qqrLookup) ||
             DEFAULT_FLOAT_ICON_URL;
         button.textContent = '';
@@ -676,14 +677,14 @@
         const chatContainer = document.getElementById('chat');
         if (!chatContainer) return;
         chatContainer.querySelectorAll('.mes_text').forEach((element) => {
-            replaceQqrPlaceholders(element);
             replaceStickerPlaceholders(element);
         });
+        updateFloatIconFromChat();
     }
 
-    function runPostRenderProcessors(element, { sourceText } = {}) {
+    function runPostRenderProcessors(element) {
         if (!element) return;
-        replaceQqrPlaceholders(element, sourceText);
+        updateFloatIconFromChat();
         replaceStickerPlaceholders(element);
         unsplashProcessor?.processMessageElement?.(element);
     }
@@ -721,21 +722,16 @@
     function rebuildQqrLookup() {
         qqrLookup = buildQqrLookup(qqrCollections[activeQqrCollection] || []);
     }
-    function replaceQqrPlaceholders(element, sourceText) {
-        return replaceQqrPlaceholdersCore({
-            element,
-            qqrLookup,
-            replacePlaceholderWithNode,
-            sourceText,
-            documentRef: document,
-        });
-    }
-    function reprocessQqrPlaceholders() {
-        reprocessQqrPlaceholdersCore({
-            qqrLookup,
-            replacePlaceholderWithNode,
-            documentRef: document,
-        });
+    function updateFloatIconFromChat() {
+        let chat = [];
+        try {
+            chat = window.SillyTavern?.getContext?.()?.chat || [];
+        } catch (error) {
+            chat = [];
+        }
+        const latestQqr = findLatestQqrImage(chat, qqrLookup);
+        floatQqrOverrideUrl = latestQqr?.url || '';
+        applyFloatIcon(carrotButton);
     }
     function renderQqrGrid() {
         if (!qqrGrid) return;
@@ -820,8 +816,7 @@
         settings.lastQqrCollection = selectedQqrCollection;
         saveSettings();
         rebuildQqrLookup();
-        reprocessQqrPlaceholders();
-        applyFloatIcon(carrotButton);
+        updateFloatIconFromChat();
     }
     function loadQqrData() {
         const settings = getSettings();
