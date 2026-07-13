@@ -86,6 +86,7 @@ export function createUI() {
                 <button class="cip-settings-tab active" data-target="theme">主题</button>
                 <button class="cip-settings-tab" data-target="avatar">头像</button>
                 <button class="cip-settings-tab" data-target="bubble">气泡</button>
+                <button class="cip-settings-tab" data-target="sync">同步</button>
             </nav>
         </div>
         <div id="cip-settings-sections">
@@ -265,6 +266,15 @@ export function createUI() {
                     </details>
                     <div id="cip-bubble-status" class="cip-settings-panel-note"></div>
                 </div>
+            </section>
+            <section id="cip-settings-sync" class="cip-settings-section">
+                <p class="cip-settings-panel-note">导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、字体、Unsplash、美化渲染等）</p>
+                <input type="file" id="cip-ext-import-file" accept=".json" hidden>
+                <div class="cip-sync-actions">
+                    <button id="cip-ext-export-btn">导出配置</button>
+                    <button id="cip-ext-import-btn">导入配置</button>
+                </div>
+                <div id="cip-ext-sync-status" class="cip-settings-panel-note"></div>
             </section>
         </div>
         <div class="cip-settings-footer">

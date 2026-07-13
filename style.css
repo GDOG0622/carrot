@@ -1320,6 +1320,30 @@ emoji-picker {
 .cip-preset-icon-btn:hover {
     opacity: 1;
 }
+#cip-settings-sync.active {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 0;
+}
+.cip-sync-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+.cip-sync-actions button {
+    padding: 6px 16px;
+    font-size: 13px;
+    border: 1px solid var(--cip-border-color);
+    border-radius: 16px;
+    background: transparent;
+    color: var(--cip-text-color);
+    cursor: pointer;
+    transition: all var(--cip-transition-speed);
+}
+.cip-sync-actions button:hover {
+    background-color: var(--cip-active-bg-color);
+}
 .cip-bubble-manager {
     display: flex;
     flex-direction: column;

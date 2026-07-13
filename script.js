@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.21';
+    const V = 'v=8.0.22';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -824,7 +824,13 @@
                         });
                     return;
                 }
-                if (typeof toastr !== 'undefined') toastr.info('请先导入图片', 'carrot');
+                if (mainInput.value.trim()) {
+                    // 没有图片文件时，用描述以 [描述.jpg] 形式插入
+                    formattedText = `[${mainInput.value.trim()}.jpg]`;
+                    inputToClear = mainInput;
+                    break;
+                }
+                if (typeof toastr !== 'undefined') toastr.info('请先导入图片或填写图片描述', 'carrot');
                 break;
             case 'wallet': {
                 const platform = walletPlatformInput.value.trim();

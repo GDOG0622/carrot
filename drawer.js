@@ -653,7 +653,6 @@ export function injectExtensionDrawer({
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="main">主要</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="prompt">提示</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="font">字体</button>
-                    <button class="cip-ext-nav-btn menu_button" data-cip-tab="sync">同步</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="api">API</button>
                 </div>
                 <div id="cip-ext-pane-main" class="cip-ext-pane">
@@ -778,17 +777,6 @@ export function injectExtensionDrawer({
                     </div>
                     <div id="cip-ext-font-status" class="cip-ext-status"></div>
                 </div>
-                <div id="cip-ext-pane-sync" class="cip-ext-pane" style="display:none;">
-                    <div class="cip-ext-field">
-                        <small>导出/导入扩展全部配置（主题、头像、头像框、表情包、提示音、字体、Unsplash、美化渲染等）</small>
-                    </div>
-                    <div class="cip-ext-sync-btns">
-                        <input type="file" id="cip-ext-import-file" accept=".json" style="display:none;">
-                        <button id="cip-ext-export-btn" class="menu_button">导出配置</button>
-                        <button id="cip-ext-import-btn" class="menu_button">导入配置</button>
-                    </div>
-                    <div id="cip-ext-sync-status" class="cip-ext-status"></div>
-                </div>
                 <div id="cip-ext-pane-api" class="cip-ext-pane" style="display:none;">
 
                     <!-- 后端状态 -->
@@ -801,7 +789,7 @@ export function injectExtensionDrawer({
                         <div class="cip-ext-sync-btns">
                             <button id="cip-api-check-btn" class="menu_button">重新检测</button>
                             <button id="cip-api-guide-btn" class="menu_button">重开引导</button>
-                            <button id="cip-api-clear-cache-btn" class="menu_button" title="清除浏览器 Cache Storage 并带缓存戳刷新当前页面">清缓存</button>
+                            <button id="cip-api-clear-cache-btn" class="menu_button" title="清除浏览器 Cache Storage 与 Service Worker 后刷新页面（相当于硬刷新）">清缓存</button>
                             <button id="cip-api-restart-btn" class="menu_button" style="display:none;" title="把新版 carrot/plugin 同步到 plugins/carrot；pm2/systemd 环境会顺便自动重启">同步后端</button>
                         </div>
                         <div id="cip-api-runtime" style="margin-top:.4em;color:#888;font-size:.85em;"></div>
@@ -1313,7 +1301,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.21';
+            const FE_VERSION = '8.0.22';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1352,8 +1340,13 @@ async function initApiPane() {
                 const keys = await caches.keys();
                 await Promise.all(keys.map((key) => caches.delete(key)));
             }
+            if (navigator.serviceWorker?.getRegistrations) {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map((reg) => reg.unregister()));
+            }
+            // 用干净 URL 刷新（去掉历史遗留的 carrot_cache_bust 参数），带参数会导致酒馆数据异常
             const url = new URL(window.location.href);
-            url.searchParams.set('carrot_cache_bust', String(Date.now()));
+            url.searchParams.delete('carrot_cache_bust');
             window.location.replace(url.toString());
         } catch (e) {
             if (typeof toastr !== 'undefined') toastr.warning('已尝试清缓存，请手动刷新页面', 'carrot');
