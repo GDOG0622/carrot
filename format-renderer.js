@@ -1,3 +1,5 @@
+import { CarrotPhotoStack } from './photo-stack.js';
+
 const PROCESSED_ATTR = 'data-carrot-format-rendered';
 const RENDERING_ATTR = 'data-carrot-format-rendering';
 const RENDERED_CLASS = 'carrot-format-rendered';
@@ -493,73 +495,79 @@ function createCarrotImage(documentRef, token, side = 'user') {
     return wrap;
 }
 
-function openCarrotImageGrid(documentRef, tokens) {
+// 全屏看大图：点堆叠卡（未拖动）时打开，可用 ‹ › / 方向键翻页，点背景 / × / Esc 关闭
+function openCarrotImageViewer(documentRef, srcList, startIndex = 0) {
+    let idx = Math.min(srcList.length - 1, Math.max(0, startIndex));
     const overlay = documentRef.createElement('div');
-    overlay.className = 'carrot-image-grid-overlay';
+    overlay.className = 'carrot-image-viewer-overlay';
 
-    const grid = documentRef.createElement('div');
-    grid.className = 'carrot-image-grid';
-    tokens.forEach((token) => {
-        const img = documentRef.createElement('img');
-        img.src = token.src;
-        img.alt = token.note || '';
-        img.loading = 'lazy';
-        grid.appendChild(img);
-    });
+    const img = documentRef.createElement('img');
+    img.className = 'carrot-image-viewer-img';
+    img.alt = '';
 
+    const counter = documentRef.createElement('div');
+    counter.className = 'carrot-image-viewer-counter';
+
+    const prev = documentRef.createElement('button');
+    prev.className = 'carrot-image-viewer-nav carrot-image-viewer-prev';
+    prev.type = 'button';
+    prev.textContent = '‹';
+    const next = documentRef.createElement('button');
+    next.className = 'carrot-image-viewer-nav carrot-image-viewer-next';
+    next.type = 'button';
+    next.textContent = '›';
     const close = documentRef.createElement('button');
-    close.className = 'carrot-image-grid-close';
+    close.className = 'carrot-image-viewer-close';
     close.type = 'button';
     close.textContent = '×';
 
+    const render = () => {
+        img.src = srcList[idx];
+        counter.textContent = `${idx + 1} / ${srcList.length}`;
+        prev.style.visibility = idx > 0 ? '' : 'hidden';
+        next.style.visibility = idx < srcList.length - 1 ? '' : 'hidden';
+    };
     const dismiss = () => {
         overlay.remove();
         documentRef.removeEventListener('keydown', onKey);
     };
-    const onKey = (e) => { if (e.key === 'Escape') dismiss(); };
+    const go = (delta) => {
+        idx = Math.min(srcList.length - 1, Math.max(0, idx + delta));
+        render();
+    };
+    const onKey = (e) => {
+        if (e.key === 'Escape') dismiss();
+        else if (e.key === 'ArrowLeft') go(-1);
+        else if (e.key === 'ArrowRight') go(1);
+    };
 
     overlay.addEventListener('click', dismiss);
-    // 点图片本身不关闭（方便看大图），只有点背景/关闭键才关
-    grid.addEventListener('click', (e) => e.stopPropagation());
-    close.addEventListener('click', dismiss);
+    [img, counter].forEach((el) => el.addEventListener('click', (e) => e.stopPropagation()));
+    prev.addEventListener('click', (e) => { e.stopPropagation(); go(-1); });
+    next.addEventListener('click', (e) => { e.stopPropagation(); go(1); });
+    close.addEventListener('click', (e) => { e.stopPropagation(); dismiss(); });
     documentRef.addEventListener('keydown', onKey);
 
-    overlay.append(close, grid);
+    if (srcList.length < 2) { prev.remove(); next.remove(); }
+    overlay.append(img, counter, prev, next, close);
     (documentRef.body || documentRef.documentElement).appendChild(overlay);
+    render();
 }
 
+// 多图堆叠卡：移植 / 改编自 Wren036/PhotoStack（github.com/Wren036/PhotoStack，
+// 许可证 PolyForm Noncommercial 1.0.0），微信风格堆叠 + 拖拽/快滑翻页。致谢原作者。
 function createCarrotImageStack(documentRef, tokens, side = 'user') {
     const wrap = documentRef.createElement('div');
-    wrap.className = `carrot-image-line carrot-image-line-${side}`;
-
-    const stack = documentRef.createElement('div');
-    stack.className = 'carrot-image-stack';
-    stack.setAttribute('role', 'button');
-    stack.title = `${tokens.length} 张图片，点击展开`;
-
-    // 最多叠放显示 3 张预览，避免太乱；数量角标显示总数
-    const previewCount = Math.min(tokens.length, 3);
-    for (let i = 0; i < previewCount; i += 1) {
-        const item = documentRef.createElement('div');
-        item.className = 'carrot-image-stack__item';
-        item.style.setProperty('--i', String(i));
-        const img = documentRef.createElement('img');
-        img.className = 'carrot-image-card';
-        img.src = tokens[i].src;
-        img.alt = '';
-        img.loading = 'lazy';
-        item.appendChild(img);
-        stack.appendChild(item);
+    wrap.className = `carrot-image-line carrot-image-line-${side} carrot-image-line--stack`;
+    const srcList = tokens.map((t) => t.src);
+    try {
+        new CarrotPhotoStack(wrap, srcList, {
+            onTap: (i) => openCarrotImageViewer(documentRef, srcList, i),
+        });
+    } catch (e) {
+        // 兜底：堆叠组件异常时退回逐张平铺
+        tokens.forEach((t) => wrap.appendChild(createCarrotImage(documentRef, t, side)));
     }
-
-    const badge = documentRef.createElement('div');
-    badge.className = 'carrot-image-stack__badge';
-    badge.textContent = String(tokens.length);
-    stack.appendChild(badge);
-
-    stack.addEventListener('click', () => openCarrotImageGrid(documentRef, tokens));
-
-    wrap.appendChild(stack);
     return wrap;
 }
 

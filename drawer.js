@@ -411,7 +411,9 @@ async function carrotHardReload() {
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
         }
-        const coreFiles = ['script.js', 'style.css', 'manifest.json'];
+        // script.js/style.css/manifest.json 由酒馆用固定 URL 加载；photo-stack.js 被
+        // format-renderer 以无版本戳静态 import，同样走 HTTP 缓存，一并硬刷新
+        const coreFiles = ['script.js', 'style.css', 'manifest.json', 'photo-stack.js'];
         await Promise.all(coreFiles.map((f) => {
             const u = new URL('./' + f, import.meta.url);
             u.search = ''; // 酒馆加载它们时不带参数，刷同一个缓存键
@@ -1472,7 +1474,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.28';
+            const FE_VERSION = '8.0.29';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

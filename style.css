@@ -2259,112 +2259,111 @@ emoji-picker {
     display: grid;
 }
 
-/* 连续多图：iOS 短信式堆叠，点击展开成网格 */
-.carrot-image-stack {
+/* 连续多图：微信风格堆叠卡（拖拽/快滑翻页）
+   移植 / 改编自 Wren036/PhotoStack（github.com/Wren036/PhotoStack，
+   许可证 PolyForm Noncommercial 1.0.0）。样式思路（固定舞台 + 分层 peek + 卡片阴影）致谢原作者。 */
+.carrot-image-line--stack .pstack-stage {
     position: relative;
-    display: inline-block;
-    cursor: pointer;
-    max-width: min(260px, 78%);
-    /* 给后面几张露出的边角留空间 */
-    padding: 0 14px 14px 0;
-    line-height: 0;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y;
+    cursor: grab;
+    margin: 2px 6px;
 }
-.carrot-image-stack__item {
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.06);
+.carrot-image-line--stack .pstack-stage.pstack-dragging {
+    cursor: grabbing;
 }
-.carrot-image-stack__item:first-child {
-    position: relative;
-    z-index: 3;
-}
-.carrot-image-stack__item:not(:first-child) {
+.pstack-card {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: calc(100% - 14px);
-    height: calc(100% - 14px);
-    transform: translate(calc(var(--i) * 7px), calc(var(--i) * 7px));
-    z-index: calc(3 - var(--i));
-    filter: brightness(0.82);
+    inset: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14);
+    transform-origin: 50% 60%;
+    transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 0.3s;
+    will-change: transform, opacity;
 }
-.carrot-image-stack__item img {
-    display: block;
+.pstack-stage.pstack-dragging .pstack-card.pstack-dragging {
+    transition: none; /* 拖拽时顶层卡实时跟手，关掉过渡 */
+}
+.pstack-card img {
     width: 100%;
     height: 100%;
-    max-height: 320px;
     object-fit: cover;
-    border-radius: 8px;
-}
-.carrot-image-stack__item:first-child img {
-    height: auto;
-    object-fit: contain;
-}
-.carrot-image-stack__badge {
-    position: absolute;
-    top: 6px;
-    right: 20px;
-    z-index: 4;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 6px;
-    border-radius: 11px;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    font-size: 12px;
-    line-height: 22px;
-    text-align: center;
+    /* 轻微放大遮住旋转边缘的锯齿，参考原仓库 */
+    transform: scale(1.04);
+    display: block;
     pointer-events: none;
 }
-.carrot-image-stack:hover {
-    filter: brightness(1.03);
+.pstack-badge {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: 200;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    font-size: 12px;
+    line-height: 18px;
+    pointer-events: none;
 }
 
-/* 点击堆叠后的网格灯箱 */
-.carrot-image-grid-overlay {
+/* 点堆叠卡看大图：全屏查看器 */
+.carrot-image-viewer-overlay {
     position: fixed;
     inset: 0;
     z-index: 100000;
-    background: rgba(0, 0, 0, 0.82);
+    background: rgba(0, 0, 0, 0.86);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 24px;
-    overflow: auto;
     cursor: zoom-out;
 }
-.carrot-image-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px;
-    max-width: 900px;
-    width: 100%;
-    align-content: center;
-}
-.carrot-image-grid img {
-    width: 100%;
-    max-height: 46vh;
+.carrot-image-viewer-img {
+    max-width: 92vw;
+    max-height: 88vh;
     object-fit: contain;
     border-radius: 10px;
-    background: rgba(255, 255, 255, 0.06);
+    cursor: default;
 }
-.carrot-image-grid-close {
+.carrot-image-viewer-counter {
     position: fixed;
     top: 16px;
-    right: 20px;
-    z-index: 100001;
-    width: 40px;
-    height: 40px;
-    border-radius: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 13px;
+    pointer-events: none;
+}
+.carrot-image-viewer-nav,
+.carrot-image-viewer-close {
+    position: fixed;
     border: none;
     background: rgba(255, 255, 255, 0.16);
     color: #fff;
-    font-size: 22px;
     cursor: pointer;
 }
-@media (max-width: 480px) {
-    .carrot-image-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.carrot-image-viewer-nav {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    font-size: 26px;
+    line-height: 44px;
+}
+.carrot-image-viewer-prev { left: 16px; }
+.carrot-image-viewer-next { right: 16px; }
+.carrot-image-viewer-close {
+    top: 16px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    font-size: 22px;
 }
 @media (max-width: 480px) {
     .carrot-link-card { padding: 8px; gap: 8px; }
