@@ -65,26 +65,93 @@ function normalizeMessageLineHeight(value) {
 }
 
 function normalizeMessageParagraphSpacing(value) {
+    if (value === '' || value === null || value === undefined) return '';
     const parsed = Number(value);
     if (!Number.isFinite(parsed) || parsed < 0) return '';
     return String(Math.min(96, Math.max(0, parsed)));
 }
 
-function buildGlobalFontCss(
-    font,
-    {
-        messageFontSize = '',
-        messageFontWeight = '',
-        messageLineHeight = '',
-        messageParagraphSpacing = '',
-    } = {},
-) {
+function normalizeMessageLetterSpacing(value) {
+    // 允许负值和 0；空字符串表示不设置
+    if (value === '' || value === null || value === undefined) return '';
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return '';
+    return String(Math.min(20, Math.max(-5, parsed)));
+}
+
+// === 消息字体度量：行内 !important 注入 ===
+// 为什么用行内而不是 <style>：酒馆自定义 CSS 可能更具体、在后面、或也用 !important，
+// 从而盖过 carrot 注入的样式表规则。行内 style 的 !important 优先级高于任何外部样式表，
+// 无论对方多具体、加没加 !important，都必胜。度量走这里，字体家族仍走 <style>（buildGlobalFontCss）。
+const CARROT_MSG_TEXT_SELECTOR = '.mes_text';
+let _msgMetricsObserver = null;
+
+function getMessageMetrics() {
+    const s = getSettings();
+    return {
+        size: normalizeMessageFontSize(s.globalMessageFontSize),
+        weight: normalizeMessageFontWeight(s.globalMessageFontWeight),
+        lineHeight: normalizeMessageLineHeight(s.globalMessageLineHeight),
+        letterSpacing: normalizeMessageLetterSpacing(s.globalMessageLetterSpacing),
+        paragraph: normalizeMessageParagraphSpacing(s.globalMessageParagraphSpacing),
+    };
+}
+
+function applyMetricsToTextEl(el, m) {
+    if (!el?.style) return;
+    const set = (prop, val) => {
+        if (val !== '') el.style.setProperty(prop, val, 'important');
+        else el.style.removeProperty(prop);
+    };
+    set('font-size', m.size !== '' ? `${m.size}px` : '');
+    set('font-weight', m.weight !== '' ? String(m.weight) : '');
+    set('line-height', m.lineHeight !== '' ? String(m.lineHeight) : '');
+    set('letter-spacing', m.letterSpacing !== '' ? `${m.letterSpacing}px` : '');
+}
+
+function applyParagraphToEl(p, m) {
+    if (!p?.style) return;
+    if (m.paragraph !== '') {
+        p.style.setProperty('margin-top', '0', 'important');
+        p.style.setProperty('margin-bottom', `${m.paragraph}px`, 'important');
+    } else {
+        p.style.removeProperty('margin-top');
+        p.style.removeProperty('margin-bottom');
+    }
+}
+
+function applyMessageMetricsWithin(root, m) {
+    if (!root) return;
+    if (root.matches?.(CARROT_MSG_TEXT_SELECTOR)) applyMetricsToTextEl(root, m);
+    root.querySelectorAll?.(CARROT_MSG_TEXT_SELECTOR).forEach((el) => applyMetricsToTextEl(el, m));
+    if (root.matches?.('.mes_text p')) applyParagraphToEl(root, m);
+    root.querySelectorAll?.('.mes_text p').forEach((p) => applyParagraphToEl(p, m));
+}
+
+function applyMessageMetrics() {
+    const m = getMessageMetrics();
+    applyMessageMetricsWithin(document.body, m);
+    // 监听新消息（含流式重渲染时新建的 <p>），持续把度量打到行内
+    if (_msgMetricsObserver) return;
+    const chat = document.getElementById('chat') || document.body;
+    if (!chat) return;
+    _msgMetricsObserver = new MutationObserver((mutations) => {
+        const metrics = getMessageMetrics();
+        for (const mut of mutations) {
+            mut.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) applyMessageMetricsWithin(node, metrics);
+            });
+        }
+    });
+    _msgMetricsObserver.observe(chat, { childList: true, subtree: true });
+}
+
+function buildGlobalFontCss(font) {
+    // 只负责「字体家族」（@font-face + 应用到全局/消息）。
+    // 字号/字重/行距/段距/字间距等度量改由 applyMessageMetrics() 行内注入，
+    // 以必胜酒馆自定义 CSS（含其 !important）。
     const hasFont = !!(font?.name && font?.url);
-    const size = normalizeMessageFontSize(messageFontSize);
-    const weight = normalizeMessageFontWeight(messageFontWeight);
-    const lineHeight = normalizeMessageLineHeight(messageLineHeight);
-    const paragraphSpacing = normalizeMessageParagraphSpacing(messageParagraphSpacing);
-    if (!hasFont && !size && !weight && !lineHeight && !paragraphSpacing) return '';
+    if (!hasFont) return '';
 
     const name = hasFont ? escapeCssString(font.name.trim()) : '';
     const url = hasFont ? escapeCssString(font.url.trim()) : '';
@@ -106,19 +173,7 @@ function buildGlobalFontCss(
     const textFontCss = hasFont
         ? `    font-family: var(--cip-global-font-family), system-ui, sans-serif !important;\n`
         : '';
-    const messageFontCss = [
-        hasFont ? '    font-family: var(--cip-global-font-family), sans-serif !important;' : '',
-        size ? `    font-size: ${size}px !important;` : '',
-        weight ? `    font-weight: ${weight} !important;` : '',
-        lineHeight ? `    line-height: ${lineHeight} !important;` : '',
-    ].filter(Boolean).join('\n');
-    const paragraphCss = paragraphSpacing
-        ? `.mes_text p {
-    margin-top: 0 !important;
-    margin-bottom: ${paragraphSpacing}px !important;
-}
-`
-        : '';
+    const messageFontCss = '    font-family: var(--cip-global-font-family), sans-serif !important;';
 
     return `${sourceCss}
 :root {
@@ -138,7 +193,6 @@ ${textFontCss.trimEnd()}
 ${messageFontCss}
 }
 
-${paragraphCss}
 .fa,
 .fas,
 .fa-solid {
@@ -166,24 +220,24 @@ ${paragraphCss}
 function applyGlobalFont(fontName = getSettings().activeGlobalFont) {
     const s = getSettings();
     const font = fontName ? s.globalFonts?.[fontName] : null;
-    const css = buildGlobalFontCss(font, {
-        messageFontSize: s.globalMessageFontSize,
-        messageFontWeight: s.globalMessageFontWeight,
-        messageLineHeight: s.globalMessageLineHeight,
-        messageParagraphSpacing: s.globalMessageParagraphSpacing,
-    });
+    const css = buildGlobalFontCss(font);
     let style = document.getElementById(GLOBAL_FONT_STYLE_ID);
-    if (!css) {
-        style?.remove();
-        return false;
-    }
-    if (!style) {
+    if (css && !style) {
         style = document.createElement('style');
         style.id = GLOBAL_FONT_STYLE_ID;
     }
-    document.head.appendChild(style);
-    style.textContent = css;
-    return true;
+    if (css) {
+        document.head.appendChild(style);
+        style.textContent = css;
+    } else {
+        style?.remove();
+    }
+    // 字号/字重/行距/段距/字间距走行内注入，必胜自定义 CSS
+    applyMessageMetrics();
+    // 只要设了字体或任一度量，就算「应用了设置」
+    const m = getMessageMetrics();
+    const hasMetric = m.size !== '' || m.weight !== '' || m.lineHeight !== '' || m.letterSpacing !== '' || m.paragraph !== '';
+    return !!css || hasMetric;
 }
 
 function getOrCreateKeepAliveAudio() {
@@ -820,6 +874,12 @@ export function injectExtensionDrawer({
                                 <input type="number" id="cip-ext-message-paragraph-spacing" class="text_pole" min="0" max="96" step="1" placeholder="px" value="${s.globalMessageParagraphSpacing || ''}">
                             </label>
                         </div>
+                        <div class="cip-ext-font-message-row">
+                            <label>
+                                <span>message 字间距</span>
+                                <input type="number" id="cip-ext-message-letter-spacing" class="text_pole" min="-5" max="20" step="0.1" placeholder="px" value="${s.globalMessageLetterSpacing || ''}">
+                            </label>
+                        </div>
                     </div>
                     <div id="cip-ext-font-status" class="cip-ext-status"></div>
                 </div>
@@ -979,6 +1039,7 @@ function bindFontPane(wrapper, s) {
     const messageFontWeightInput = document.getElementById('cip-ext-message-font-weight');
     const messageLineHeightInput = document.getElementById('cip-ext-message-line-height');
     const messageParagraphSpacingInput = document.getElementById('cip-ext-message-paragraph-spacing');
+    const messageLetterSpacingInput = document.getElementById('cip-ext-message-letter-spacing');
     const fontStatus = document.getElementById('cip-ext-font-status');
 
     const setFontStatus = (message) => {
@@ -1040,10 +1101,12 @@ function bindFontPane(wrapper, s) {
         s.globalMessageFontWeight = normalizeMessageFontWeight(messageFontWeightInput?.value || '');
         s.globalMessageLineHeight = normalizeMessageLineHeight(messageLineHeightInput?.value || '');
         s.globalMessageParagraphSpacing = normalizeMessageParagraphSpacing(messageParagraphSpacingInput?.value || '');
+        s.globalMessageLetterSpacing = normalizeMessageLetterSpacing(messageLetterSpacingInput?.value || '');
         if (messageFontSizeInput) messageFontSizeInput.value = s.globalMessageFontSize;
         if (messageFontWeightInput) messageFontWeightInput.value = s.globalMessageFontWeight;
         if (messageLineHeightInput) messageLineHeightInput.value = s.globalMessageLineHeight;
         if (messageParagraphSpacingInput) messageParagraphSpacingInput.value = s.globalMessageParagraphSpacing;
+        if (messageLetterSpacingInput) messageLetterSpacingInput.value = s.globalMessageLetterSpacing;
         saveSettings();
         const applied = applyGlobalFont(name);
         setFontStatus(applied ? `✅ 已应用字体设置${name ? `：${name}` : ''}` : '✅ 已恢复默认字体设置');
@@ -1056,6 +1119,7 @@ function bindFontPane(wrapper, s) {
     messageFontWeightInput?.addEventListener('input', () => setFontStatus(''));
     messageLineHeightInput?.addEventListener('input', () => setFontStatus(''));
     messageParagraphSpacingInput?.addEventListener('input', () => setFontStatus(''));
+    messageLetterSpacingInput?.addEventListener('input', () => setFontStatus(''));
 }
 
 function bindPromptPane(wrapper, s) {
@@ -1408,7 +1472,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.27';
+            const FE_VERSION = '8.0.28';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
