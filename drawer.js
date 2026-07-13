@@ -347,6 +347,30 @@ async function showSystemNotification(title, body) {
     }
 }
 
+/**
+ * 硬刷新：酒馆用固定 URL 加载扩展 script.js / style.css，走浏览器 HTTP 磁盘缓存，
+ * 普通 reload 刷不掉。先 cache:'reload' 从网络重拉写回缓存，再刷新即为新版。
+ */
+async function carrotHardReload() {
+    try {
+        if (window.caches?.keys) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+        }
+        const coreFiles = ['script.js', 'style.css', 'manifest.json'];
+        await Promise.all(coreFiles.map((f) => {
+            const u = new URL('./' + f, import.meta.url);
+            u.search = ''; // 酒馆加载它们时不带参数，刷同一个缓存键
+            return fetch(u.pathname, { cache: 'reload' }).catch(() => {});
+        }));
+    } catch (e) {
+        // 刷新缓存失败也照常刷新页面
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('carrot_cache_bust'); // 去掉历史遗留参数，避免污染地址
+    window.location.replace(url.toString());
+}
+
 // --- 提示音 ---
 function buildSoundOptions(selectEl) {
     if (!selectEl) return;
@@ -1384,7 +1408,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.26';
+            const FE_VERSION = '8.0.27';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1419,24 +1443,7 @@ async function initApiPane() {
         const prevText = clearCacheBtn.textContent;
         clearCacheBtn.textContent = '清理中…';
         try {
-            if (window.caches?.keys) {
-                const keys = await caches.keys();
-                await Promise.all(keys.map((key) => caches.delete(key)));
-            }
-            // 酒馆用固定 URL（不带版本参数）加载扩展 script.js / style.css，
-            // 这两个文件走浏览器 HTTP 磁盘缓存，普通 reload 刷不掉。
-            // 用 cache:'reload' 从网络重拉并写回 HTTP 缓存，reload 后即为新版（等效硬刷新）。
-            const base = import.meta.url; // .../carrot/drawer.js?v=8.0.xx
-            const coreFiles = ['script.js', 'style.css', 'manifest.json'];
-            await Promise.all(coreFiles.map((f) => {
-                const u = new URL('./' + f, base);
-                u.search = ''; // 酒馆加载它们时不带参数，刷同一个缓存键
-                return fetch(u.pathname, { cache: 'reload' }).catch(() => {});
-            }));
-            // 用干净 URL 刷新（去掉历史遗留的 carrot_cache_bust 参数），带参数会导致酒馆数据异常
-            const url = new URL(window.location.href);
-            url.searchParams.delete('carrot_cache_bust');
-            window.location.replace(url.toString());
+            await carrotHardReload();
         } catch (e) {
             if (typeof toastr !== 'undefined') toastr.warning('已尝试清缓存，请手动刷新页面', 'carrot');
             window.location.reload();
@@ -1481,10 +1488,11 @@ async function initApiPane() {
                 if (ok) {
                     clearInterval(timer);
                     refreshStatus();
-                    if (typeof toastr !== 'undefined') toastr.info('后端已恢复，正在刷新页面以拿到新 CSRF token…', 'carrot');
+                    if (typeof toastr !== 'undefined') toastr.info('后端已恢复，正在硬刷新页面以拿到新 CSRF token 和最新前端…', 'carrot');
                     // 关键：进程重启后服务器 session 全新，浏览器持有的 CSRF token 已失效，
                     // 必须刷新整页才能拿到新 token，否则发送消息会 403。
-                    setTimeout(() => window.location.reload(), 600);
+                    // 用硬刷新，顺便把缓存的 script.js/style.css 一起换成新版。
+                    setTimeout(() => carrotHardReload(), 600);
                     return;
                 } else if (attempts >= 30) {
                     clearInterval(timer);

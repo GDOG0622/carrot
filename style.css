@@ -2231,8 +2231,11 @@ emoji-picker {
 }
 .carrot-image-card {
     display: block;
-    max-width: min(260px, 78%);
-    max-height: 320px;
+    /* !important：酒馆 .mes_text img:not(.mes_img) 的 max-width:100% 优先级更高会盖掉这里 */
+    max-width: min(260px, 78%) !important;
+    max-height: 320px !important;
+    width: auto;
+    height: auto;
     object-fit: contain;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.06);
@@ -2254,6 +2257,114 @@ emoji-picker {
 }
 .carrot-image-fallback.active {
     display: grid;
+}
+
+/* 连续多图：iOS 短信式堆叠，点击展开成网格 */
+.carrot-image-stack {
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    max-width: min(260px, 78%);
+    /* 给后面几张露出的边角留空间 */
+    padding: 0 14px 14px 0;
+    line-height: 0;
+}
+.carrot-image-stack__item {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+}
+.carrot-image-stack__item:first-child {
+    position: relative;
+    z-index: 3;
+}
+.carrot-image-stack__item:not(:first-child) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: calc(100% - 14px);
+    height: calc(100% - 14px);
+    transform: translate(calc(var(--i) * 7px), calc(var(--i) * 7px));
+    z-index: calc(3 - var(--i));
+    filter: brightness(0.82);
+}
+.carrot-image-stack__item img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 320px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+.carrot-image-stack__item:first-child img {
+    height: auto;
+    object-fit: contain;
+}
+.carrot-image-stack__badge {
+    position: absolute;
+    top: 6px;
+    right: 20px;
+    z-index: 4;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 12px;
+    line-height: 22px;
+    text-align: center;
+    pointer-events: none;
+}
+.carrot-image-stack:hover {
+    filter: brightness(1.03);
+}
+
+/* 点击堆叠后的网格灯箱 */
+.carrot-image-grid-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(0, 0, 0, 0.82);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: auto;
+    cursor: zoom-out;
+}
+.carrot-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    max-width: 900px;
+    width: 100%;
+    align-content: center;
+}
+.carrot-image-grid img {
+    width: 100%;
+    max-height: 46vh;
+    object-fit: contain;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+}
+.carrot-image-grid-close {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 100001;
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    border: none;
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+    font-size: 22px;
+    cursor: pointer;
+}
+@media (max-width: 480px) {
+    .carrot-image-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
 }
 @media (max-width: 480px) {
     .carrot-link-card { padding: 8px; gap: 8px; }

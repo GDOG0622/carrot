@@ -493,6 +493,76 @@ function createCarrotImage(documentRef, token, side = 'user') {
     return wrap;
 }
 
+function openCarrotImageGrid(documentRef, tokens) {
+    const overlay = documentRef.createElement('div');
+    overlay.className = 'carrot-image-grid-overlay';
+
+    const grid = documentRef.createElement('div');
+    grid.className = 'carrot-image-grid';
+    tokens.forEach((token) => {
+        const img = documentRef.createElement('img');
+        img.src = token.src;
+        img.alt = token.note || '';
+        img.loading = 'lazy';
+        grid.appendChild(img);
+    });
+
+    const close = documentRef.createElement('button');
+    close.className = 'carrot-image-grid-close';
+    close.type = 'button';
+    close.textContent = '×';
+
+    const dismiss = () => {
+        overlay.remove();
+        documentRef.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') dismiss(); };
+
+    overlay.addEventListener('click', dismiss);
+    // 点图片本身不关闭（方便看大图），只有点背景/关闭键才关
+    grid.addEventListener('click', (e) => e.stopPropagation());
+    close.addEventListener('click', dismiss);
+    documentRef.addEventListener('keydown', onKey);
+
+    overlay.append(close, grid);
+    (documentRef.body || documentRef.documentElement).appendChild(overlay);
+}
+
+function createCarrotImageStack(documentRef, tokens, side = 'user') {
+    const wrap = documentRef.createElement('div');
+    wrap.className = `carrot-image-line carrot-image-line-${side}`;
+
+    const stack = documentRef.createElement('div');
+    stack.className = 'carrot-image-stack';
+    stack.setAttribute('role', 'button');
+    stack.title = `${tokens.length} 张图片，点击展开`;
+
+    // 最多叠放显示 3 张预览，避免太乱；数量角标显示总数
+    const previewCount = Math.min(tokens.length, 3);
+    for (let i = 0; i < previewCount; i += 1) {
+        const item = documentRef.createElement('div');
+        item.className = 'carrot-image-stack__item';
+        item.style.setProperty('--i', String(i));
+        const img = documentRef.createElement('img');
+        img.className = 'carrot-image-card';
+        img.src = tokens[i].src;
+        img.alt = '';
+        img.loading = 'lazy';
+        item.appendChild(img);
+        stack.appendChild(item);
+    }
+
+    const badge = documentRef.createElement('div');
+    badge.className = 'carrot-image-stack__badge';
+    badge.textContent = String(tokens.length);
+    stack.appendChild(badge);
+
+    stack.addEventListener('click', () => openCarrotImageGrid(documentRef, tokens));
+
+    wrap.appendChild(stack);
+    return wrap;
+}
+
 function decodeAttr(value) {
     return String(value || '')
         .replace(/&quot;/g, '"')
@@ -798,7 +868,24 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
 
     const rendered = documentRef.createElement('div');
     rendered.className = RENDERED_CLASS;
-    tokens.forEach((token, index) => {
+    for (let index = 0; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token.type === 'carrotImage') {
+            // 收集相邻的连续图片：≥2 张就堆叠成 iOS 短信式一摞，点击展开成网格
+            const group = [token];
+            let j = index + 1;
+            while (j < tokens.length && tokens[j].type === 'carrotImage') {
+                group.push(tokens[j]);
+                j += 1;
+            }
+            if (group.length >= 2) {
+                rendered.appendChild(createCarrotImageStack(documentRef, group, side));
+            } else {
+                rendered.appendChild(createCarrotImage(documentRef, token, side));
+            }
+            index = j - 1;
+            continue;
+        }
         const bubbleOptions = { hasTail: shouldRenderTail(tokens, index, preset) };
         if (token.type === 'textBubble') {
             rendered.appendChild(createTextBubble(documentRef, token, side, preset, bubbleOptions));
@@ -816,12 +903,10 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             rendered.appendChild(createRecallLine(documentRef, token));
         } else if (token.type === 'linkCard') {
             rendered.appendChild(createLinkCard(documentRef, token, side));
-        } else if (token.type === 'carrotImage') {
-            rendered.appendChild(createCarrotImage(documentRef, token, side));
         } else {
             rendered.appendChild(createTextLine(documentRef, token));
         }
-    });
+    }
 
     element.appendChild(rendered);
     setTimeout(() => {
