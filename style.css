@@ -2259,19 +2259,43 @@ emoji-picker {
     display: grid;
 }
 
-/* 连续多图：微信风格堆叠卡（拖拽/快滑翻页）
-   移植 / 改编自 Wren036/PhotoStack（github.com/Wren036/PhotoStack，
-   许可证 PolyForm Noncommercial 1.0.0）。样式思路（固定舞台 + 分层 peek + 卡片阴影）致谢原作者。 */
-.carrot-image-line--stack .pstack-stage {
-    position: relative;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: pan-y;
-    cursor: grab;
-    margin: 2px 6px;
+/* 连续多图：折叠时微信风格堆叠一摞，点「展开」横排铺开，点「收起」收回。
+   堆叠卡视觉（分层 peek + 旋转 + 缩放 + 卡片阴影）参考 Wren036/PhotoStack
+   （github.com/Wren036/PhotoStack，PolyForm Noncommercial 1.0.0），致谢原作者。
+   展开/收起为 carrot 自实现（不用拖拽，避免与酒馆左右滑动切换生成冲突）。 */
+.carrot-photos {
+    display: inline-block;
+    max-width: 100%;
 }
-.carrot-image-line--stack .pstack-stage.pstack-dragging {
-    cursor: grabbing;
+.carrot-photos[data-mode="stack"] .carrot-photos-row { display: none; }
+.carrot-photos[data-mode="row"] .carrot-photos-stackbox { display: none; }
+
+.carrot-photos-stackbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 4px;
+}
+.carrot-photos-expand,
+.carrot-photos-collapse {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 44px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(127, 127, 127, 0.22);
+    color: var(--cip-text-color, #ddd);
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.carrot-photos-expand:hover,
+.carrot-photos-collapse:hover { background: rgba(127, 127, 127, 0.38); }
+
+.carrot-photos-stack {
+    position: relative;
+    flex: 0 0 auto;
+    overflow: visible; /* 让底层卡的 peek 露在右边 */
 }
 .pstack-card {
     position: absolute;
@@ -2281,18 +2305,13 @@ emoji-picker {
     background: rgba(255, 255, 255, 0.06);
     box-shadow: 0 3px 14px rgba(0, 0, 0, 0.14);
     transform-origin: 50% 60%;
-    transition: transform 0.32s cubic-bezier(0.2, 0.7, 0.3, 1), opacity 0.3s;
-    will-change: transform, opacity;
 }
-.pstack-stage.pstack-dragging .pstack-card.pstack-dragging {
-    transition: none; /* 拖拽时顶层卡实时跟手，关掉过渡 */
-}
+.pstack-card.pstack-top { cursor: zoom-in; } /* 顶层卡点开看大图 */
 .pstack-card img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    /* 轻微放大遮住旋转边缘的锯齿，参考原仓库 */
-    transform: scale(1.04);
+    transform: scale(1.04); /* 轻微放大遮旋转边缘锯齿，参考原仓库 */
     display: block;
     pointer-events: none;
 }
@@ -2310,19 +2329,43 @@ emoji-picker {
     pointer-events: none;
 }
 
-/* 点堆叠卡看大图：全屏查看器 */
+/* 展开后的横排 */
+.carrot-photos-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    max-width: 100%;
+    padding: 2px 2px 6px;
+    -webkit-overflow-scrolling: touch;
+}
+.carrot-photos-cell {
+    flex: 0 0 auto;
+    cursor: zoom-in;
+}
+.carrot-photos-cell img {
+    display: block;
+    width: auto;
+    max-width: 220px;
+    border-radius: 10px;
+    object-fit: cover;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* 点图看大图：全屏查看器 */
 .carrot-image-viewer-overlay {
     position: fixed;
     inset: 0;
     z-index: 100000;
     background: rgba(0, 0, 0, 0.86);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
     cursor: zoom-out;
 }
+/* 图片用 fixed 居中：iOS 上 flex 居中会跑偏到上半屏，translate 居中最稳 */
 .carrot-image-viewer-img {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     max-width: 92vw;
     max-height: 88vh;
     object-fit: contain;
