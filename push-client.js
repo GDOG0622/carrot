@@ -60,6 +60,27 @@ function waitForActive(reg) {
 }
 
 /**
+ * 拿一个能用来 showNotification 的 SW registration（没有就注册一个）。
+ * 用途：桌面 Windows 的 Chrome/Edge 对 new Notification()（非持久化通知）显示很不可靠，
+ * 而 registration.showNotification()（持久化通知）稳定 —— Claude/GPT 等站点走的就是后者。
+ * push-sw 很轻，不缓存、不拦截请求，仅用于弹通知也没有副作用。
+ */
+export async function ensureNotifRegistration() {
+    if (!('serviceWorker' in navigator)) return null;
+    try {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const existing = regs.find((r) => r.active && /\/carrot\//.test(r.scope));
+        if (existing) return existing;
+        const reg = await getSwRegistration();
+        await waitForActive(reg);
+        return reg;
+    } catch (e) {
+        console.warn('[carrot] 获取通知 SW 失败', e);
+        return null;
+    }
+}
+
+/**
  * 开启后端推送：申请通知权限 → 注册 SW → 用后端 VAPID 公钥订阅 → 上报订阅。
  * 失败时抛出带中文说明的 Error。
  */

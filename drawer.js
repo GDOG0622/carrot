@@ -325,22 +325,25 @@ async function showSystemNotification(title, body) {
         }
         return notification;
     };
+    // 优先用 Service Worker 的持久化通知：桌面 Windows 的 Chrome/Edge 对 new Notification()
+    // 显示很不可靠（常常静默不弹），registration.showNotification() 才稳定，
+    // 也和 Web Push 的通知走同一条路。拿不到 SW 时再退回 new Notification()。
     try {
-        const registration = await navigator.serviceWorker?.getRegistration?.();
-        if (registration?.showNotification && isMobile) {
+        const { ensureNotifRegistration } = await import('./push-client.js');
+        const registration = await ensureNotifRegistration();
+        if (registration?.showNotification) {
             await registration.showNotification(safeTitle, options);
             return true;
         }
+    } catch (error) {
+        // 落到下面的 new Notification 兜底
+    }
+    try {
         sendRegular();
         return true;
-    } catch (error) {
-        try {
-            sendRegular();
-            return true;
-        } catch (fallbackError) {
-            console.warn('Carrot: system notification failed', fallbackError);
-            return false;
-        }
+    } catch (fallbackError) {
+        console.warn('Carrot: system notification failed', fallbackError);
+        return false;
     }
 }
 
@@ -1381,7 +1384,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.25';
+            const FE_VERSION = '8.0.26';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
