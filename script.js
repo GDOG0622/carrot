@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.24';
+    const V = 'v=8.0.25';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -116,7 +116,7 @@
 
         // v8.0: 启动后探测 backend plugin，不通时弹引导
         initBackend().catch((e) => console.warn('[carrot] backend init failed', e));
-        // v8.0.23: 开了后端推送的设备，启动时静默恢复订阅（清缓存会注销 Service Worker）
+        // v8.0.23: 开了后端推送的设备，启动时静默恢复订阅（SW 或订阅若丢失会自动重建）
         if (getSettings().notifWebPush) {
             import(`./push-client.js?${V}`)
                 .then((m) => m.resyncBackendPush())
@@ -831,8 +831,8 @@
                     return;
                 }
                 if (mainInput.value.trim()) {
-                    // 没有图片文件时，用描述以 [描述.jpg] 形式插入
-                    formattedText = `[${mainInput.value.trim()}.jpg]`;
+                    // 没有图片文件时，用描述以 “[描述.jpg]” 形式插入（与文本模板一致，带中文双引号）
+                    formattedText = formatTemplates.text.image.replace('{content}', mainInput.value.trim());
                     inputToClear = mainInput;
                     break;
                 }

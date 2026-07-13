@@ -1232,12 +1232,26 @@ function bindPromptPane(wrapper, s) {
         e.stopPropagation();
         notifWebPushTestBtn.disabled = true;
         try {
-            const { sendBackendPush } = await import('./push-client.js');
+            const { enableBackendPush, sendBackendPush } = await import('./push-client.js');
+            // 还没订阅（没勾开关，或勾了但没订上）时，先自动订阅一次再测——省得报「没有已订阅的设备」
+            if (!s.notifWebPush || !notifWebPushCb?.checked) {
+                setSoundStatus('正在开启后端推送…');
+                try {
+                    const enabled = await enableBackendPush();
+                    s.notifWebPush = true;
+                    saveSettings();
+                    if (notifWebPushCb) notifWebPushCb.checked = true;
+                    setSoundStatus(`✅ 后端推送已开启（${enabled.count || 1} 个设备），正在发送测试…`);
+                } catch (err) {
+                    setSoundStatus(`❌ ${err?.message || '开启后端推送失败'}`);
+                    return;
+                }
+            }
             const result = await sendBackendPush('carrot 测试推送', '收到这条说明后端推送链路正常', 'carrot-push-test');
             if (result?.ok && result.sent > 0) {
                 setSoundStatus(`✅ 已推送到 ${result.sent} 个设备${result.removed ? `（清理了 ${result.removed} 个失效订阅）` : ''}`);
             } else {
-                setSoundStatus(`❌ ${result?.error || '推送失败，请确认后端已同步到 v8.0.23+ 且已开启后端推送'}`);
+                setSoundStatus(`❌ ${result?.error || '推送失败，请确认后端已同步到 v8.0.25+'}`);
             }
         } finally {
             notifWebPushTestBtn.disabled = false;
@@ -1367,7 +1381,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.24';
+            const FE_VERSION = '8.0.25';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }
@@ -1406,10 +1420,16 @@ async function initApiPane() {
                 const keys = await caches.keys();
                 await Promise.all(keys.map((key) => caches.delete(key)));
             }
-            if (navigator.serviceWorker?.getRegistrations) {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(regs.map((reg) => reg.unregister()));
-            }
+            // 酒馆用固定 URL（不带版本参数）加载扩展 script.js / style.css，
+            // 这两个文件走浏览器 HTTP 磁盘缓存，普通 reload 刷不掉。
+            // 用 cache:'reload' 从网络重拉并写回 HTTP 缓存，reload 后即为新版（等效硬刷新）。
+            const base = import.meta.url; // .../carrot/drawer.js?v=8.0.xx
+            const coreFiles = ['script.js', 'style.css', 'manifest.json'];
+            await Promise.all(coreFiles.map((f) => {
+                const u = new URL('./' + f, base);
+                u.search = ''; // 酒馆加载它们时不带参数，刷同一个缓存键
+                return fetch(u.pathname, { cache: 'reload' }).catch(() => {});
+            }));
             // 用干净 URL 刷新（去掉历史遗留的 carrot_cache_bust 参数），带参数会导致酒馆数据异常
             const url = new URL(window.location.href);
             url.searchParams.delete('carrot_cache_bust');

@@ -35,6 +35,31 @@ async function getSwRegistration() {
 }
 
 /**
+ * 等这个具体的 registration 激活。
+ * 不能用 navigator.serviceWorker.ready —— 它只在「有 SW 控制当前页面」时 resolve，
+ * 而我们的 SW 注册在扩展子目录、scope 不含主页面 `/`，ready 会永远卡住。
+ * push 事件不依赖 SW 是否控制页面，只要这个 registration 激活即可订阅。
+ */
+function waitForActive(reg) {
+    if (reg.active) return Promise.resolve(reg);
+    return new Promise((resolve) => {
+        const sw = reg.installing || reg.waiting;
+        if (!sw) { resolve(reg); return; }
+        const onChange = () => {
+            if (sw.state === 'activated') {
+                sw.removeEventListener('statechange', onChange);
+                resolve(reg);
+            }
+        };
+        sw.addEventListener('statechange', onChange);
+        if (sw.state === 'activated') {
+            sw.removeEventListener('statechange', onChange);
+            resolve(reg);
+        }
+    });
+}
+
+/**
  * 开启后端推送：申请通知权限 → 注册 SW → 用后端 VAPID 公钥订阅 → 上报订阅。
  * 失败时抛出带中文说明的 Error。
  */
@@ -57,7 +82,7 @@ export async function enableBackendPush() {
     }
 
     const reg = await getSwRegistration();
-    await navigator.serviceWorker.ready;
+    await waitForActive(reg);
 
     let sub = await reg.pushManager.getSubscription();
     if (sub) {
@@ -91,7 +116,10 @@ export async function enableBackendPush() {
 export async function disableBackendPush() {
     try {
         if (!('serviceWorker' in navigator)) return;
-        const reg = await navigator.serviceWorker.getRegistration(swUrl().pathname);
+        // 按 scope 找到 carrot 自己的 SW 注册（scope 在扩展子目录，getRegistration() 无参拿不到）
+        const swPath = swUrl().pathname;
+        const regs = await navigator.serviceWorker.getRegistrations();
+        const reg = regs.find((r) => swPath.startsWith(new URL(r.scope).pathname));
         const sub = await reg?.pushManager?.getSubscription();
         if (sub) {
             await fetch(`${BASE}/unsubscribe`, {
