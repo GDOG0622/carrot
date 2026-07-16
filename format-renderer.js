@@ -1053,9 +1053,16 @@ export function initFormatRenderer({
     const flushPending = () => {
         flushHandle = 0;
         const streaming = isStreaming();
-        const streamingMes = streaming
-            ? documentRef.querySelector('#chat .mes.last_mes')
-            : null;
+        let streamingMes = null;
+        if (streaming) {
+            const lastMes = documentRef.querySelector('#chat .mes.last_mes');
+            const isUserLast = !!lastMes && (
+                lastMes.getAttribute('is_user') === 'true'
+                || lastMes.classList.contains('is_user')
+                || lastMes.classList.contains('user_mes')
+            );
+            if (lastMes && !isUserLast) streamingMes = lastMes;
+        }
         const flushSet = (set, options) => {
             if (!set.size) return;
             const items = Array.from(set);
