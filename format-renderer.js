@@ -589,9 +589,9 @@ function parseAttrs(raw) {
 }
 
 function createTextLine(documentRef, token) {
-    const line = documentRef.createElement('div');
+    const line = documentRef.createElement('p');
     line.className = 'carrot-render-text-line';
-    line.textContent = token.body || '\u00a0';
+    line.textContent = token.body;
     return line;
 }
 
@@ -910,8 +910,25 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
 
     const rendered = documentRef.createElement('div');
     rendered.className = RENDERED_CLASS;
+    let textBuffer = [];
+    const flushTextBuffer = () => {
+        if (!textBuffer.length) return;
+        const merged = textBuffer.join('\n').replace(/^\n+|\n+$/g, '');
+        textBuffer = [];
+        if (!merged.trim()) return;
+        rendered.appendChild(createTextLine(documentRef, { body: merged }));
+    };
     for (let index = 0; index < tokens.length; index += 1) {
         const token = tokens[index];
+        if (token.type === 'text') {
+            if (String(token.body || '').trim() === '') {
+                flushTextBuffer();
+            } else {
+                textBuffer.push(token.body);
+            }
+            continue;
+        }
+        flushTextBuffer();
         if (token.type === 'carrotImage') {
             // 收集相邻的连续图片：≥2 张就堆叠成 iOS 短信式一摞，点击展开成网格
             const group = [token];
@@ -947,10 +964,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             rendered.appendChild(createLinkCard(documentRef, token, side));
         } else if (token.type === 'qqrLine') {
             rendered.appendChild(createQqrLine(documentRef, token));
-        } else {
-            rendered.appendChild(createTextLine(documentRef, token));
         }
     }
+    flushTextBuffer();
 
     element.appendChild(rendered);
     setTimeout(() => {
@@ -1020,13 +1036,62 @@ export function initFormatRenderer({
         return changed;
     };
 
+    const pendingElements = new Set();
+    const forcedElements = new Set();
+    let flushHandle = 0;
+
+    const isStreaming = () => {
+        try {
+            const ctx = window.SillyTavern?.getContext?.();
+            if (ctx?.streamingProcessor) return true;
+        } catch (error) { /* ignore */ }
+        const stop = documentRef.getElementById('mes_stop');
+        if (stop && stop.style.display !== 'none' && stop.offsetParent !== null) return true;
+        return false;
+    };
+
+    const flushPending = () => {
+        flushHandle = 0;
+        const streaming = isStreaming();
+        const streamingMes = streaming
+            ? documentRef.querySelector('#chat .mes.last_mes')
+            : null;
+        const flushSet = (set, options) => {
+            if (!set.size) return;
+            const items = Array.from(set);
+            set.clear();
+            items.forEach((element) => {
+                if (!element.isConnected) return;
+                if (streamingMes && streamingMes.contains(element)) {
+                    set.add(element);
+                    return;
+                }
+                processElement(element, options);
+            });
+        };
+        flushSet(pendingElements, {});
+        flushSet(forcedElements, { force: true });
+        if (streaming && (pendingElements.size || forcedElements.size)) {
+            scheduleFlush(250);
+        }
+    };
+
+    const scheduleFlush = (delayMs = 0) => {
+        if (flushHandle) return;
+        if (delayMs > 0) {
+            flushHandle = setTimeout(flushPending, delayMs);
+        } else if (typeof requestAnimationFrame === 'function') {
+            flushHandle = requestAnimationFrame(flushPending);
+        } else {
+            flushHandle = setTimeout(flushPending, 16);
+        }
+    };
+
     const observeChat = (chatContainer) => {
         chatContainer.querySelectorAll('.mes_text').forEach(processElement);
 
         const observer = new MutationObserver((mutations) => {
-            const pending = new Set();
-            const forced = new Set();
-            mutations.forEach((mutation) => {
+            for (const mutation of mutations) {
                 const mutationElement =
                     mutation.target?.nodeType === Node.ELEMENT_NODE
                         ? mutation.target
@@ -1035,36 +1100,60 @@ export function initFormatRenderer({
                 if (renderedElement) {
                     const element = renderedElement.closest?.('.mes_text');
                     if (element && element.getAttribute(RENDERING_ATTR) !== 'true') {
-                        forced.add(element);
+                        forcedElements.add(element);
                     }
-                    return;
-                }
-
-                if (mutation.type === 'characterData') {
-                    const element = mutation.target.parentElement?.closest?.('.mes_text');
-                    if (element) pending.add(element);
-                    return;
+                    continue;
                 }
 
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
-                        if (node.classList?.contains('mes_text')) pending.add(node);
-                        node.querySelectorAll?.('.mes_text').forEach((el) => pending.add(el));
+                        if (node.classList?.contains('mes_text')) pendingElements.add(node);
+                        node.querySelectorAll?.('.mes_text').forEach((el) => pendingElements.add(el));
                     } else {
                         const element = node.parentElement?.closest?.('.mes_text');
-                        if (element) pending.add(element);
+                        if (element) pendingElements.add(element);
                     }
                 });
-            });
-            pending.forEach((element) => setTimeout(() => processElement(element), 0));
-            forced.forEach((element) => setTimeout(() => processElement(element, { force: true }), 0));
+            }
+            if (pendingElements.size || forcedElements.size) scheduleFlush();
         });
 
         observer.observe(chatContainer, {
             childList: true,
             subtree: true,
-            characterData: true,
         });
+
+        try {
+            const ctx = window.SillyTavern?.getContext?.();
+            const eventSource = ctx?.eventSource;
+            const eventTypes = ctx?.eventTypes || ctx?.event_types;
+            if (eventSource && eventTypes) {
+                const rerenderLast = () => {
+                    const last = chatContainer.querySelector('.mes.last_mes .mes_text');
+                    if (last) {
+                        forcedElements.add(last);
+                        scheduleFlush();
+                    }
+                };
+                const rerenderAll = () => {
+                    chatContainer.querySelectorAll('.mes_text').forEach((el) => forcedElements.add(el));
+                    scheduleFlush();
+                };
+                const finishedEvents = [
+                    eventTypes.CHARACTER_MESSAGE_RENDERED,
+                    eventTypes.USER_MESSAGE_RENDERED,
+                    eventTypes.MESSAGE_RECEIVED,
+                    eventTypes.MESSAGE_SENT,
+                    eventTypes.MESSAGE_EDITED,
+                    eventTypes.MESSAGE_SWIPED,
+                    eventTypes.GENERATION_ENDED,
+                ].filter(Boolean);
+                finishedEvents.forEach((evt) => eventSource.on(evt, rerenderLast));
+                if (eventTypes.CHAT_CHANGED) eventSource.on(eventTypes.CHAT_CHANGED, rerenderAll);
+            }
+        } catch (error) {
+            console.warn('胡萝卜插件：ST 事件绑定失败，将仅依赖 DOM 观察', error);
+        }
     };
 
     const setup = () => {
