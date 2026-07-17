@@ -898,6 +898,22 @@ function shouldRenderTail(tokens, index, preset) {
     return true;
 }
 
+function getMessageFormattingContext(element, isUser) {
+    try {
+        const ctx = window.SillyTavern?.getContext?.();
+        if (!ctx || typeof ctx.messageFormatting !== 'function') return null;
+        const messageId = getMessageId(element);
+        const message = messageId !== null ? (ctx.chat?.[messageId] || null) : null;
+        const chName = message?.name || '';
+        const isSystem = !!message?.is_system;
+        return {
+            format: (text) => ctx.messageFormatting(text, chName, isSystem, isUser, messageId),
+        };
+    } catch (error) {
+        return null;
+    }
+}
+
 function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) {
     const side = isUser ? 'user' : 'char';
     originalHtmlByElement.set(element, element.innerHTML);
@@ -910,13 +926,24 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
 
     const rendered = documentRef.createElement('div');
     rendered.className = RENDERED_CLASS;
+    const formatContext = getMessageFormattingContext(element, isUser);
     let textBuffer = [];
     const flushTextBuffer = () => {
         if (!textBuffer.length) return;
         const merged = textBuffer.join('\n').replace(/^\n+|\n+$/g, '');
         textBuffer = [];
         if (!merged.trim()) return;
-        rendered.appendChild(createTextLine(documentRef, { body: merged }));
+        const line = createTextLine(documentRef, { body: merged });
+        if (formatContext) {
+            try {
+                const formatted = formatContext.format(merged);
+                if (typeof formatted === 'string' && formatted.length) {
+                    line.textContent = '';
+                    line.innerHTML = formatted;
+                }
+            } catch (error) { /* keep plain textContent */ }
+        }
+        rendered.appendChild(line);
     };
     for (let index = 0; index < tokens.length; index += 1) {
         const token = tokens[index];
