@@ -1696,9 +1696,9 @@ emoji-picker {
 
 .carrot-render-html-content {
     display: inline-block;
-    max-width: 78%;
+    max-width: 100%;
     text-align: left;
-    white-space: normal;
+    white-space: pre-wrap;
     word-break: break-word;
 }
 
