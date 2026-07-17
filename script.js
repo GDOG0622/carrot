@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.33';
+    const V = 'v=8.0.34';
     const {
         createSettingsStorage,
         DEFAULT_FLOAT_ICON_URL,
@@ -30,6 +30,7 @@
     const { initVoiceInput } = await import(`./voice-input.js?${V}`);
     const { initLinkVision } = await import(`./link-vision.js?${V}`);
     const { buildCarrotImageToken, uploadCarrotImage } = await import(`./image-upload.js?${V}`);
+    const { initProactive } = await import(`./proactive.js?${V}`);
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -1447,6 +1448,7 @@
                 reprocessRegexPlaceholders();
             },
         });
+        initProactive();
         switchStickerCategory(Object.keys(stickerData)[0] || '');
     }
     init();

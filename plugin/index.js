@@ -177,6 +177,18 @@ async function init(router) {
     router.post('/push/unsubscribe', push.unsubscribe);
     router.post('/push/notify', push.notify);
 
+    // char 主动发消息（后端驱动）
+    const proactive = require('./proactive');
+    router.get('/proactive/users', proactive.usersHandler);
+    router.get('/proactive/chars', proactive.charsHandler);
+    router.get('/proactive/chats', proactive.chatsHandler);
+    router.get('/proactive/profiles', proactive.profilesHandler);
+    router.get('/proactive/models', proactive.modelsHandler);
+    router.post('/proactive/start', proactive.makeStartHandler(push.sendToAllSubscriptions));
+    router.post('/proactive/stop', proactive.stopHandler);
+    // 服务器进程重启后，纯内存定时器会丢失；启动时把各用户上次启用的方案重新挂上
+    proactive.resumeAllUsersOnBoot(push.sendToAllSubscriptions);
+
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot；运行环境 ${runtime.manager || '裸 node'}`);
     console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，可在 carrot API 面板点击“同步后端”`);
 }

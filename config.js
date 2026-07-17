@@ -57,6 +57,15 @@ const DEFAULT_SETTINGS = {
         groqKey: '',
         lastWorking: 'siliconflow',
     },
+    // v8.0.31: char 主动发消息（后端驱动）
+    proactive: {
+        enabled: false,
+        globalPrompt: 'user当前不在线，char主动根据当前时间发消息联系user（线上模式）或推进剧情（线下模式）。根据上下文判断当前为线上或线下。',
+        stUser: '',
+        apiProfileId: '',
+        apiModel: '',
+        schemes: [],
+    },
 };
 
 const legacyDefinitions = {
@@ -171,6 +180,8 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.notifSounds)) settings.notifSounds = {};
     if (!isPlainObject(settings.globalFonts)) settings.globalFonts = {};
     if (!isPlainObject(settings.bubblePresets)) settings.bubblePresets = {};
+    if (!isPlainObject(settings.proactive)) settings.proactive = clone(DEFAULT_SETTINGS.proactive);
+    if (!Array.isArray(settings.proactive.schemes)) settings.proactive.schemes = [];
     settings.floatVisible = settings.floatVisible !== false;
     settings.floatSize = clampNumber(settings.floatSize, 20, 120, DEFAULT_SETTINGS.floatSize);
     settings.floatOpacity = clampNumber(settings.floatOpacity, 0.2, 1, DEFAULT_SETTINGS.floatOpacity);

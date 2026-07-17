@@ -15,6 +15,9 @@ self.addEventListener('push', (event) => {
     event.waitUntil(self.registration.showNotification(title, {
         body: data.body || '',
         tag: data.tag || 'carrot-push',
+        // 同 tag 默认静默替换旧通知（不重新弹出/震动/响铃）。
+        // 主动消息等会连续多次推送的场景必须重新提醒，所以强制 renotify。
+        renotify: true,
         icon: '/favicon.ico',
         badge: '/favicon.ico',
     }));

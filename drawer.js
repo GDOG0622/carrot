@@ -744,6 +744,7 @@ export function injectExtensionDrawer({
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="prompt">提示</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="font">字体</button>
                     <button class="cip-ext-nav-btn menu_button" data-cip-tab="api">API</button>
+                    <button class="cip-ext-nav-btn menu_button" data-cip-tab="message">消息</button>
                 </div>
                 <div id="cip-ext-pane-main" class="cip-ext-pane">
                     <div class="cip-ext-checkboxes">
@@ -956,6 +957,9 @@ export function injectExtensionDrawer({
                         </div>
                     </details>
 
+                </div>
+                <div id="cip-ext-pane-message" class="cip-ext-pane" style="display:none;">
+                    <div id="proactive-container"></div>
                 </div>
             </div>
         </div>
@@ -1474,7 +1478,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.33';
+            const FE_VERSION = '8.0.34';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

@@ -67,16 +67,12 @@ function unsubscribe(req, res) {
     res.json({ ok: true, count: subs.length });
 }
 
-async function notify(req, res) {
+// 核心推送逻辑，供 express handler 和其他模块（如 proactive.js）直接调用
+async function sendToAllSubscriptions(payload) {
     const subs = loadSubs();
     if (!subs.length) {
-        return res.json({ ok: false, sent: 0, error: '没有已订阅的设备，请先在通知设置里开启后端推送' });
+        return { ok: false, sent: 0, error: '没有已订阅的设备，请先在通知设置里开启后端推送' };
     }
-    const payload = {
-        title: String(req.body?.title || 'AI 回复完成'),
-        body: String(req.body?.body || ''),
-        tag: String(req.body?.tag || 'carrot-push'),
-    };
     const vapid = getVapid();
     const results = await Promise.allSettled(subs.map((sub) => sendWebPush(sub, payload, vapid)));
 
@@ -93,7 +89,17 @@ async function notify(req, res) {
     if (dead.size) {
         saveSubs(subs.filter((sub) => !dead.has(sub.endpoint)));
     }
-    res.json({ ok: true, sent, failed: subs.length - sent, removed: dead.size });
+    return { ok: true, sent, failed: subs.length - sent, removed: dead.size };
+}
+
+async function notify(req, res) {
+    const payload = {
+        title: String(req.body?.title || 'AI 回复完成'),
+        body: String(req.body?.body || ''),
+        tag: String(req.body?.tag || 'carrot-push'),
+    };
+    const result = await sendToAllSubscriptions(payload);
+    res.json(result);
 }
 
 module.exports = {
@@ -101,4 +107,5 @@ module.exports = {
     subscribe,
     unsubscribe,
     notify,
+    sendToAllSubscriptions,
 };
