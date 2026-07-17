@@ -411,6 +411,12 @@ async function carrotHardReload() {
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
         }
+        // Service Worker（push-sw.js）浏览器默认最多 24 小时才自动检查一次更新，
+        // 清缓存时顺手主动触发一次检查，避免通知逻辑改了但迟迟不生效。
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations().catch(() => []);
+            await Promise.all(regs.filter((r) => /\/carrot\//.test(r.scope)).map((r) => r.update().catch(() => {})));
+        }
         // script.js/style.css/manifest.json 由酒馆用固定 URL 加载；photo-stack.js 被
         // format-renderer 以无版本戳静态 import，同样走 HTTP 缓存，一并硬刷新
         const coreFiles = ['script.js', 'style.css', 'manifest.json', 'photo-stack.js'];
@@ -1478,7 +1484,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.34';
+            const FE_VERSION = '8.0.36';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

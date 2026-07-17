@@ -31,7 +31,11 @@ function bufferToB64url(buffer) {
 
 async function getSwRegistration() {
     const url = swUrl();
-    return navigator.serviceWorker.register(url.pathname + url.search);
+    const reg = await navigator.serviceWorker.register(url.pathname + url.search);
+    // 浏览器默认最多每 24 小时才自动检查一次 SW 更新，光刷新页面等不到新版生效。
+    // 每次拿 registration 时都主动触发一次检查，push-sw.js 改了逻辑（如 renotify）才能及时生效。
+    reg.update().catch(() => {});
+    return reg;
 }
 
 /**
@@ -70,7 +74,10 @@ export async function ensureNotifRegistration() {
     try {
         const regs = await navigator.serviceWorker.getRegistrations();
         const existing = regs.find((r) => r.active && /\/carrot\//.test(r.scope));
-        if (existing) return existing;
+        if (existing) {
+            existing.update().catch(() => {}); // 同上：顺手触发一次更新检查
+            return existing;
+        }
         const reg = await getSwRegistration();
         await waitForActive(reg);
         return reg;
