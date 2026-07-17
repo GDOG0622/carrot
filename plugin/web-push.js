@@ -21,10 +21,12 @@ function generateVapidKeys() {
 
 function signVapidJwt(audience, privateJwk, subject) {
     const header = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
+    const now = Math.floor(Date.now() / 1000);
     const payload = b64url(JSON.stringify({
         aud: audience,
-        exp: Math.floor(Date.now() / 1000) + 12 * 3600,
+        exp: now + 12 * 3600,
         sub: subject,
+        iat: now, // Apple/WebKit push 服务严格校验，缺 iat 会返回 403 BadJwtToken；其它推送服务不强制
     }));
     const signingInput = `${header}.${payload}`;
     const key = crypto.createPrivateKey({ key: privateJwk, format: 'jwk' });
@@ -86,7 +88,8 @@ async function sendWebPush(subscription, payloadObj, vapid) {
 
     const body = encryptPayload(JSON.stringify(payloadObj), p256dh, auth);
     const audience = new URL(endpoint).origin;
-    const jwt = signVapidJwt(audience, vapid.privateJwk, vapid.subject || 'mailto:carrot@bunnyhole.invalid');
+    // sub 必须是能通过域名格式校验的 mailto/https，用 .invalid 之类的保留域名会被 Apple Web Push 判 403 BadJwtToken
+    const jwt = signVapidJwt(audience, vapid.privateJwk, vapid.subject || 'mailto:carrot@example.com');
 
     const res = await fetch(endpoint, {
         method: 'POST',
@@ -99,7 +102,8 @@ async function sendWebPush(subscription, payloadObj, vapid) {
         },
         body,
     });
-    return { status: res.status, ok: res.ok };
+    const bodyText = res.ok ? '' : await res.text().catch(() => '');
+    return { status: res.status, ok: res.ok, body: bodyText };
 }
 
 module.exports = {

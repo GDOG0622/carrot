@@ -81,7 +81,15 @@ async function sendToAllSubscriptions(payload) {
     results.forEach((result, i) => {
         if (result.status === 'fulfilled' && result.value.ok) {
             sent++;
-        } else if (result.status === 'fulfilled' && [400, 403, 404, 410].includes(result.value.status)) {
+            return;
+        }
+        const host = (() => { try { return new URL(subs[i].endpoint).host; } catch { return '?'; } })();
+        if (result.status === 'rejected') {
+            console.warn('[carrot-plugin] Web Push 发送异常', host, result.reason?.message);
+        } else {
+            console.warn('[carrot-plugin] Web Push 发送失败', host, result.value.status, result.value.body);
+        }
+        if (result.status === 'fulfilled' && [400, 403, 404, 410].includes(result.value.status)) {
             // 订阅已过期/被撤销，从存储里清掉
             dead.add(subs[i].endpoint);
         }
