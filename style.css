@@ -2530,3 +2530,356 @@ emoji-picker {
     .carrot-link-card__desc { font-size: 10px; }
     .carrot-image-card { max-width: min(220px, 82%); max-height: 280px; }
 }
+
+/* --- 拼豆挂件（beads.js） ---
+   modal-backdrop 基础样式是 position:absolute + top:auto，依赖父级文档流“恰好”只有一屏高度才会显示在可见区域；
+   拼豆弹窗是直接挂在 body 下的新增节点，文档流一长就会被排到可视区域之外（很隐蔽，肉眼看不出报错）。
+   这里强制 fixed + 贴顶，不依赖文档流位置。 */
+.cip-bead-modal {
+    position: fixed !important;
+    top: 0 !important;
+    inset: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+.cip-bead-overview-content,
+.cip-bead-editor-content {
+    width: 380px;
+}
+/* 编辑器是悬浮面板，不是居中弹窗：外层透明、不挡聊天区点击，只有面板本体能交互，
+   默认位置由 JS 的 positionEditorDefault() 控制（PC 右下角 / 移动端居中） */
+.cip-bead-editor-backdrop {
+    position: fixed !important;
+    inset: 0;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: transparent;
+    display: block;
+    pointer-events: none;
+    padding: 0;
+}
+.cip-bead-editor-content {
+    position: fixed;
+    pointer-events: auto;
+    max-width: calc(100vw - 20px);
+}
+.cip-bead-drag-handle {
+    cursor: move;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.cip-bead-resize-handle {
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--cip-text-color);
+    opacity: 0.6;
+    cursor: nwse-resize;
+    touch-action: none;
+}
+.cip-bead-slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.cip-bead-slot-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: var(--cip-border-radius);
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-input-bg-color);
+}
+.cip-bead-slot-empty {
+    justify-content: center;
+    color: #888;
+    padding: 16px 8px;
+}
+.cip-bead-slot-thumb {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    overflow: hidden;
+    background: rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: #888;
+}
+.cip-bead-slot-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    image-rendering: pixelated;
+}
+.cip-bead-slot-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.cip-bead-slot-name {
+    font-weight: 600;
+    color: var(--cip-text-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cip-bead-slot-info {
+    font-size: 12px;
+    color: #888;
+}
+.cip-bead-slot-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.cip-bead-slot-btn {
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-accent-color);
+    color: var(--cip-insert-text-color);
+    font-size: 12px;
+    cursor: pointer;
+}
+.cip-bead-slot-delete {
+    background: var(--cip-delete-color);
+}
+.cip-bead-new-btn,
+.cip-bead-pendant-btn,
+.cip-bead-close-btn {
+    padding: 8px;
+    border-radius: var(--cip-border-radius);
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-accent-color);
+    color: var(--cip-insert-text-color);
+    cursor: pointer;
+}
+.cip-bead-new-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.cip-bead-size-options {
+    display: flex;
+    gap: 8px;
+}
+.cip-bead-size-btn {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-input-bg-color);
+    color: var(--cip-text-color);
+    cursor: pointer;
+}
+.cip-bead-size-btn.active {
+    background: var(--cip-accent-color);
+    color: var(--cip-insert-text-color);
+    border-color: var(--cip-accent-color);
+}
+.cip-bead-pendant-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cip-text-color);
+}
+.cip-bead-pendant-row select,
+.cip-bead-pendant-row input[type="range"] {
+    flex: 1;
+}
+.cip-bead-pendant-tabs {
+    display: flex;
+    gap: 6px;
+}
+.cip-bead-pendant-tab {
+    flex: 1;
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-input-bg-color);
+    color: var(--cip-text-color);
+    cursor: pointer;
+}
+.cip-bead-pendant-tab.active {
+    background: var(--cip-accent-color);
+    color: var(--cip-insert-text-color);
+    border-color: var(--cip-accent-color);
+}
+.cip-bead-pendant-pane {
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+}
+.cip-bead-pendant-pane.active {
+    display: flex;
+}
+/* 挂件是真实 DOM（不是 ::before 伪元素），这样才能只对「点了透明豆」的那几个格子
+   单独套 backdrop-filter 磨砂玻璃，没点豆的地方彻底纯透明，不会被一整块模糊误伤。 */
+.mes[data-cip-bead-pendant] {
+    position: relative;
+}
+.cip-bead-pendant-el {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+    transform: rotate(var(--cip-bead-rot));
+}
+.cip-bead-pendant-base {
+    position: absolute;
+    inset: 0;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    image-rendering: pixelated;
+}
+.cip-bead-pendant-glass {
+    position: absolute;
+    backdrop-filter: blur(6px) saturate(160%);
+    -webkit-backdrop-filter: blur(6px) saturate(160%);
+}
+/* 动效关键帧：完全由 --cip-bead-rot 这个自定义属性承载「静态旋转角度」，
+   动画本身只叠加缩放/摆动/透明度，两者互不冲突 */
+@keyframes cip-bead-anim-shrink {
+    0%, 100% { transform: rotate(var(--cip-bead-rot)) scale(1); }
+    50% { transform: rotate(var(--cip-bead-rot)) scale(0.8); }
+}
+@keyframes cip-bead-anim-sway {
+    0%, 100% { transform: rotate(calc(var(--cip-bead-rot) - 10deg)); }
+    50% { transform: rotate(calc(var(--cip-bead-rot) + 10deg)); }
+}
+@keyframes cip-bead-anim-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+}
+.cip-bead-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.cip-bead-swatch {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+}
+.cip-bead-swatch.active {
+    border-color: var(--cip-text-color);
+}
+.cip-bead-eraser {
+    background: repeating-conic-gradient(#ccc 0% 25%, #eee 0% 50%) 50% / 10px 10px;
+    font-size: 12px;
+    color: #666;
+}
+.cip-bead-alpha-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.cip-bead-alpha-row input[type="range"] {
+    flex: 1;
+}
+.cip-bead-grid {
+    display: grid;
+    gap: 1px;
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    margin: 0 auto;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 6px;
+    overflow: hidden;
+    touch-action: none;
+}
+.cip-bead-cell {
+    aspect-ratio: 1 / 1;
+    background: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.cip-bead-dot {
+    width: 72%;
+    height: 72%;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-sizing: border-box;
+}
+.cip-bead-dot-transparent {
+    border: 2px solid rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+.cip-bead-archive-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.cip-bead-archive-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 6px;
+    border-radius: var(--cip-border-radius);
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-input-bg-color);
+}
+.cip-bead-archive-card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: contain;
+    image-rendering: pixelated;
+    cursor: pointer;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 6px;
+}
+.cip-bead-archive-card .cip-bead-slot-name {
+    font-size: 12px;
+    max-width: 100%;
+}
+.cip-bead-archive-card .cip-bead-slot-btn {
+    width: 100%;
+}
+.cip-bead-lightbox-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    max-width: min(90vw, 500px);
+    max-height: 90vh;
+}
+.cip-bead-lightbox-content img {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    image-rendering: pixelated;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+}
+#cip-bead-lightbox-name {
+    color: white;
+    font-size: 14px;
+}
+#cip-bead-lightbox-close {
+    padding: 8px 20px;
+    border-radius: var(--cip-border-radius);
+    border: 1px solid var(--cip-border-color);
+    background: var(--cip-accent-color);
+    color: var(--cip-insert-text-color);
+    cursor: pointer;
+}

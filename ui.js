@@ -41,6 +41,9 @@ export function createUI() {
                 <button id="cip-bunny-button" class="cip-footer-icon-button" type="button" title="BUNNY 模式">
                     <i class="fa-solid fa-robot"></i>
                 </button>
+                <button id="cip-bead-button" class="cip-footer-icon-button" type="button" title="拼豆">
+                    <i class="fa-solid fa-cubes"></i>
+                </button>
             </div>
             <div class="cip-footer-actions">
                 <button id="cip-voice-input-button" class="cip-footer-icon-button" type="button" title="语音输入">

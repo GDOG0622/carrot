@@ -3,3 +3,7 @@ plugin/push-data/
 plugin/covers/
 plugin/uploads/
 node_modules/
+
+# 内部文档，只存本地不进 GitHub
+README.md
+todo.md

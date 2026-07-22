@@ -45,6 +45,23 @@ const DEFAULT_SETTINGS = {
     bubblePresets: {},
     syncFilename: '',
     localStorageMigrated: false,
+    // v8.0.38: 拼豆挂件（独立字段，避免和其它功能混在一起）
+    // v8.0.41: 挂件改为 char/user 分别配置（位置/大小/旋转/动效），详细归一化逻辑在 beads.js 的 state() 里
+    // v8.0.43: 9 格可调色板（palette），归一化也在 beads.js 的 state() 里
+    // v8.0.44: 熨烫后的成品搬进 archive（作品匣），不再占 slots 存档；旧数据迁移在 beads.js 的 state() 里
+    beads: {
+        slots: [],
+        archive: [],
+        palette: [
+            'rgba(231,76,60,1)', 'rgba(230,126,34,1)', 'rgba(241,196,15,1)',
+            'rgba(46,204,113,1)', 'rgba(26,188,156,1)', 'rgba(52,152,219,1)',
+            'rgba(155,89,182,1)', 'rgba(253,121,168,1)', 'rgba(44,62,80,1)',
+        ],
+        pendant: {
+            user: { enabled: false, corner: 'top-right', slotId: null, size: 36, rotation: 0, effect: 'none' },
+            char: { enabled: false, corner: 'top-left', slotId: null, size: 36, rotation: 0, effect: 'none' },
+        },
+    },
     // v8.0: 后端 plugin / 链接解析
     linkParse: {
         disabled: false,   // 用户主动跳过 → 不再弹引导，不再做链接解析
@@ -270,6 +287,11 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.bubblePresets)) settings.bubblePresets = {};
     if (!isPlainObject(settings.proactive)) settings.proactive = clone(DEFAULT_SETTINGS.proactive);
     if (!Array.isArray(settings.proactive.schemes)) settings.proactive.schemes = [];
+    // beads.pendant 的详细结构（char/user 分别的 enabled/corner/size/rotation/effect）
+    // 由 beads.js 自己的 state() 归一化（含旧版单一配置迁移），这里只保证顶层字段存在
+    if (!isPlainObject(settings.beads)) settings.beads = clone(DEFAULT_SETTINGS.beads);
+    if (!Array.isArray(settings.beads.slots)) settings.beads.slots = [];
+    settings.beads.slots = settings.beads.slots.slice(0, 3);
     settings.floatVisible = settings.floatVisible !== false;
     settings.floatSize = clampNumber(settings.floatSize, 20, 120, DEFAULT_SETTINGS.floatSize);
     settings.floatOpacity = clampNumber(settings.floatOpacity, 0.2, 1, DEFAULT_SETTINGS.floatOpacity);
