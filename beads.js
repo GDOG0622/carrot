@@ -97,6 +97,18 @@ function cellPxFor(size) {
     return 5;
 }
 
+// 编辑器里的格子比挂件底图大得多（要能点击），缩放在这个基准上再乘 editorZoom%
+function editorBaseCellPx(size) {
+    if (size <= 8) return 32;
+    if (size <= 16) return 22;
+    if (size <= 32) return 14;
+    return 8;
+}
+const ZOOM_MIN = 50;
+const ZOOM_MAX = 400;
+const ZOOM_STEP = 25;
+const COORD_STEP = 5;
+
 // 挂件底图只画"不透明"的豆子；透明/半透明豆子留白（真正纯透明），
 // 它们在挂件里改用真实 DOM + backdrop-filter 单独叠一层玻璃质感（见 buildPendantElement），
 // 这样没点豆的地方才是彻底的空，不会被误伤出一层雾。
@@ -683,7 +695,19 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
             <input type="range" id="cip-bead-custom-alpha" min="0" max="1" step="0.01" value="1">
             <output id="cip-bead-custom-alpha-value">1.00</output>
         </div>
-        <div id="cip-bead-grid" class="cip-bead-grid"></div>
+        <div id="cip-bead-zoom-row" class="cip-bead-zoom-row">
+            <button type="button" id="cip-bead-zoom-out">－</button>
+            <output id="cip-bead-zoom-value">100%</output>
+            <button type="button" id="cip-bead-zoom-in">＋</button>
+        </div>
+        <div id="cip-bead-grid-scroll" class="cip-bead-grid-scroll">
+            <div id="cip-bead-grid-layout" class="cip-bead-grid-layout">
+                <div class="cip-bead-ruler-corner"></div>
+                <div id="cip-bead-ruler-x" class="cip-bead-ruler-x"></div>
+                <div id="cip-bead-ruler-y" class="cip-bead-ruler-y"></div>
+                <div id="cip-bead-grid" class="cip-bead-grid"></div>
+            </div>
+        </div>
         <div class="cip-modal-actions">
             <button type="button" id="cip-bead-editor-close">存档</button>
             <button type="button" id="cip-bead-editor-finish">熨烫</button>
@@ -882,9 +906,37 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
     });
     documentRef.addEventListener('pointerup', () => { isPointerDown = false; });
 
+    const rulerXEl = editorContent.querySelector('#cip-bead-ruler-x');
+    const rulerYEl = editorContent.querySelector('#cip-bead-ruler-y');
+    const zoomOutBtn = editorContent.querySelector('#cip-bead-zoom-out');
+    const zoomInBtn = editorContent.querySelector('#cip-bead-zoom-in');
+    const zoomValueEl = editorContent.querySelector('#cip-bead-zoom-value');
+    let editorZoom = 100;
+
+    function buildRulers(slot, cellPx) {
+        const totalPx = cellPx * slot.size;
+        rulerXEl.innerHTML = '';
+        rulerYEl.innerHTML = '';
+        rulerXEl.style.width = `${totalPx}px`;
+        rulerYEl.style.height = `${totalPx}px`;
+        for (let i = COORD_STEP; i <= slot.size; i += COORD_STEP) {
+            const labelX = create('span', 'cip-bead-ruler-label', String(i));
+            labelX.style.left = `${(i - 0.5) * cellPx}px`;
+            rulerXEl.appendChild(labelX);
+
+            const labelY = create('span', 'cip-bead-ruler-label', String(i));
+            labelY.style.top = `${(i - 0.5) * cellPx}px`;
+            rulerYEl.appendChild(labelY);
+        }
+    }
+
     function buildGrid(slot) {
+        const cellPx = Math.max(4, Math.round(editorBaseCellPx(slot.size) * editorZoom / 100));
         gridEl.innerHTML = '';
-        gridEl.style.gridTemplateColumns = `repeat(${slot.size}, 1fr)`;
+        gridEl.style.gridTemplateColumns = `repeat(${slot.size}, ${cellPx}px)`;
+        gridEl.style.gridAutoRows = `${cellPx}px`;
+        gridEl.style.width = `${cellPx * slot.size}px`;
+        gridEl.style.height = `${cellPx * slot.size}px`;
         cellDots = [];
         for (let i = 0; i < slot.size * slot.size; i++) {
             const cell = create('div', 'cip-bead-cell');
@@ -895,7 +947,19 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
             gridEl.appendChild(cell);
             cellDots.push(dot);
         }
+        buildRulers(slot, cellPx);
+        zoomValueEl.textContent = `${editorZoom}%`;
     }
+
+    function applyZoom(delta) {
+        const st = state();
+        const slot = st.slots.find((s) => s.id === editingSlotId);
+        if (!slot) return;
+        editorZoom = clamp(editorZoom + delta, ZOOM_MIN, ZOOM_MAX, editorZoom);
+        buildGrid(slot);
+    }
+    zoomOutBtn.addEventListener('click', () => applyZoom(-ZOOM_STEP));
+    zoomInBtn.addEventListener('click', () => applyZoom(ZOOM_STEP));
 
     function openEditor(slotId) {
         const st = state();
@@ -904,6 +968,7 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
         editingSlotId = slotId;
         eraserMode = false;
         selectedSwatchIndex = null;
+        editorZoom = 100;
         highlightSwatch(null);
         buildPalette();
         editorContent.querySelector('#cip-bead-editor-title').textContent = `${slot.name}（${slot.size}×${slot.size}）`;
