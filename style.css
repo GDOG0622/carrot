@@ -1522,7 +1522,8 @@ emoji-picker {
 #cip-extension-container .cip-ext-sound-row,
 #cip-extension-container .cip-ext-font-manage,
 #cip-extension-container .cip-ext-font-row,
-#cip-extension-container .cip-ext-font-message-row {
+#cip-extension-container .cip-ext-font-message-row,
+#cip-extension-container .cip-ext-float-visible-row {
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -1535,7 +1536,8 @@ emoji-picker {
 #cip-extension-container .cip-ext-sound-manage button,
 #cip-extension-container .cip-ext-sound-row button,
 #cip-extension-container .cip-ext-font-manage button,
-#cip-extension-container .cip-ext-font-row button {
+#cip-extension-container .cip-ext-font-row button,
+#cip-extension-container .cip-ext-float-visible-row button {
     width: auto;
     min-width: max-content;
     white-space: nowrap;

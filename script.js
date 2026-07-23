@@ -1356,6 +1356,16 @@
         }
     }
 
+    // 浮标被拖出可视区域后无法再点到自身来拖回来，清掉存的坐标 + 清空内联样式，
+    // 让 CSS 里 #cip-carrot-button 的默认 top/right 生效
+    function resetButtonPosition() {
+        localStorage.removeItem('cip_button_position_v4');
+        carrotButton.style.position = '';
+        carrotButton.style.top = '';
+        carrotButton.style.left = '';
+        carrotButton.style.right = '';
+    }
+
     $(() => {
         $(window).on('resize orientationchange', function () {
             if (inputPanel.classList.contains('active')) {
@@ -1444,6 +1454,7 @@
             },
             applyFloatIcon,
             applyFloatVisibility,
+            resetButtonPosition,
             reprocessRegexPlaceholders: () => {
                 formatRenderer?.reprocess?.();
                 reprocessRegexPlaceholders();

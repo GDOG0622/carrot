@@ -729,6 +729,7 @@ export function injectExtensionDrawer({
     setRenderEnabled,
     applyFloatIcon,
     applyFloatVisibility,
+    resetButtonPosition,
     reprocessRegexPlaceholders,
 }) {
     const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
@@ -754,10 +755,13 @@ export function injectExtensionDrawer({
                 </div>
                 <div id="cip-ext-pane-main" class="cip-ext-pane">
                     <div class="cip-ext-checkboxes">
-                        <label class="cip-ext-label checkbox_label">
-                            <input type="checkbox" id="cip-ext-float-visible" ${floatVisible ? 'checked' : ''}>
-                            <span>显示浮标</span>
-                        </label>
+                        <div class="cip-ext-float-visible-row">
+                            <label class="cip-ext-label checkbox_label">
+                                <input type="checkbox" id="cip-ext-float-visible" ${floatVisible ? 'checked' : ''}>
+                                <span>显示浮标</span>
+                            </label>
+                            <button type="button" id="cip-ext-rescue-carrot" class="menu_button" title="浮标被拖出屏幕外点不到了？点这个把它复位">🥕 救救胡萝卜</button>
+                        </div>
                         <label class="cip-ext-label checkbox_label">
                             <input type="checkbox" id="cip-ext-render-toggle" ${renderEnabled ? 'checked' : ''}>
                             <span>美化渲染</span>
@@ -987,6 +991,7 @@ export function injectExtensionDrawer({
     }));
 
     const floatVisibleCheckbox = document.getElementById('cip-ext-float-visible');
+    const rescueCarrotBtn = document.getElementById('cip-ext-rescue-carrot');
     const renderToggleCheckbox = document.getElementById('cip-ext-render-toggle');
     const floatIconInput = document.getElementById('cip-ext-float-icon');
     const floatSizeInput = document.getElementById('cip-ext-float-size');
@@ -1000,6 +1005,10 @@ export function injectExtensionDrawer({
         getSettings().floatVisible = next;
         saveSettings();
         applyFloatVisibility(carrotButton);
+    });
+    rescueCarrotBtn?.addEventListener('click', () => {
+        resetButtonPosition();
+        if (typeof toastr !== 'undefined') toastr.success('浮标已复位到默认位置', 'carrot');
     });
     renderToggleCheckbox?.addEventListener('change', () => {
         const next = renderToggleCheckbox.checked;
