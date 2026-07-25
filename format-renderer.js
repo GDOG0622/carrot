@@ -688,12 +688,25 @@ function createQqrLine(documentRef, token) {
     return line;
 }
 
-function createHtmlBlock(documentRef, token, side) {
+function createHtmlBlock(documentRef, token, side, formatContext = null) {
     const line = documentRef.createElement('div');
     line.className = `carrot-render-html-block carrot-render-html-${side}`;
     const content = documentRef.createElement('div');
     content.className = 'carrot-render-html-content';
-    content.appendChild(sanitizeHtmlFragment(documentRef, token.body));
+
+    // 先过一遍 messageFormatting 再净化：showdown 只对它自己认识的块级标签
+    // （div/table/... ）保留原始 HTML 不处理内部 markdown，像 <content> 这种
+    // AI 自定义的包装标签会被当成普通内容，里面的 **粗体** 之类正常转换。
+    // 已经是真 HTML 的部分（比如本来就想让 AI 直出的 <div>）行为不变，
+    // 不会被这一步误伤——这是 showdown 自己的标准规则，不是我们额外加的判断。
+    let html = token.body;
+    if (formatContext) {
+        try {
+            const formatted = formatContext.format(token.body);
+            if (typeof formatted === 'string' && formatted.length) html = formatted;
+        } catch (error) { /* 格式化失败就用原始文本走下面的 HTML 净化 */ }
+    }
+    content.appendChild(sanitizeHtmlFragment(documentRef, html));
     line.appendChild(content);
     return line;
 }
@@ -1046,7 +1059,7 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
         } else if (token.type === 'dimensionBubble') {
             rendered.appendChild(createDimensionBubble(documentRef, token, side, preset, bubbleOptions));
         } else if (token.type === 'htmlBlock') {
-            rendered.appendChild(createHtmlBlock(documentRef, token, side));
+            rendered.appendChild(createHtmlBlock(documentRef, token, side, formatContext));
         } else if (token.type === 'timestamp') {
             rendered.appendChild(createTimestampLine(documentRef, token));
         } else if (token.type === 'system') {
