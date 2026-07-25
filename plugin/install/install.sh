@@ -109,6 +109,12 @@ fi
 echo "[步骤] 复制 $SRC_PLUGIN -> $DEST"
 cp -r "$SRC_PLUGIN" "$DEST"
 
+if [ -f "$DEST/package.json" ] && command -v npm >/dev/null 2>&1; then
+    echo "[步骤] 安装后端依赖 (npm install，用于猫箱出站代理等功能)"
+    (cd "$DEST" && npm install --omit=dev --no-audit --no-fund) \
+        || echo "       npm install 失败，不影响核心功能，只是出站代理这类可选功能不可用"
+fi
+
 echo
 echo "============================================================"
 echo "=== 安装完成 ==="

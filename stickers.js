@@ -1,3 +1,5 @@
+import { rewriteCatboxUrl } from './catbox-proxy.js';
+
 export function buildStickerLookup(stickerData) {
     const nextLookup = new Map();
     Object.values(stickerData || {}).forEach((items) => {
@@ -45,7 +47,7 @@ export function replaceStickerPlaceholders({
         }
         if (!url) continue;
         const img = documentRef.createElement('img');
-        img.src = url;
+        img.src = rewriteCatboxUrl(url);
         img.alt = 'Sticker';
         img.style.display = 'block';
         img.style.width = '100px';

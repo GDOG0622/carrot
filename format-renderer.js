@@ -1,4 +1,5 @@
 import { CarrotPhotoStack } from './photo-stack.js';
+import { isCatboxHost, catboxProxyUrl, rewriteCatboxUrl } from './catbox-proxy.js';
 
 const PROCESSED_ATTR = 'data-carrot-format-rendered';
 const RENDERING_ATTR = 'data-carrot-format-rendering';
@@ -25,6 +26,54 @@ const SAFE_HTML_TAGS = new Set([
     'abstract',
 ]);
 const DROP_HTML_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'svg']);
+
+// 猫箱（catbox.moe）图床代理：不管图片是从 AI 输出的 markdown、carrot 自己的 token
+// 还是用户手动粘贴的裸链接来的，只要最终落到 <img src> 或纯文本自动链接上，
+// 都改走后端 /img-proxy，浏览器端不用直连 catbox。
+const CATBOX_MEDIA_EXT_RE = /\.(png|jpe?g|gif|webp|svg|mp4|webm)(\?.*)?$/i;
+const CATBOX_PROXY_PREFIX = '/api/plugins/carrot/img-proxy?url=';
+
+function resolveUrl(raw, documentRef) {
+    try { return new URL(raw, documentRef?.baseURI || window.location.href); } catch { return null; }
+}
+
+// 把某个渲染完成的消息节点里所有指向 catbox 的 <img src> / 纯链接自动改走本地代理
+function rewriteCatboxMedia(root, documentRef) {
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+
+    root.querySelectorAll('img[src]').forEach((img) => {
+        const src = img.getAttribute('src') || '';
+        if (!src || src.startsWith(CATBOX_PROXY_PREFIX) || src.startsWith('/api/plugins/carrot/')) return;
+        const parsed = resolveUrl(src, documentRef);
+        if (!parsed || !/^https?:$/.test(parsed.protocol) || !isCatboxHost(parsed.hostname)) return;
+        img.src = catboxProxyUrl(parsed.toString());
+    });
+
+    // 任何指向猫箱的 <a href> 都改走代理——不管什么后缀，点开/下载都不用连梯子。
+    // showdown 会把裸 URL 自动转成 <a href>；文本内容等于链接本身、且看着像图片后缀时，
+    // 额外升级成内嵌 <img> 预览（纯链接没法预判是不是图片，只能靠后缀猜）。
+    root.querySelectorAll('a[href]').forEach((a) => {
+        if (a.querySelector('img')) return;
+        const href = a.getAttribute('href') || '';
+        const parsed = resolveUrl(href, documentRef);
+        if (!parsed || !/^https?:$/.test(parsed.protocol) || !isCatboxHost(parsed.hostname)) return;
+        const proxied = catboxProxyUrl(parsed.toString());
+
+        if (CATBOX_MEDIA_EXT_RE.test(parsed.pathname)) {
+            const text = a.textContent.trim();
+            if (text === href.trim() || text === parsed.toString()) {
+                const img = documentRef.createElement('img');
+                img.className = 'carrot-image-card carrot-catbox-autoembed';
+                img.loading = 'lazy';
+                img.alt = '';
+                img.src = proxied;
+                a.replaceWith(img);
+                return;
+            }
+        }
+        a.href = proxied;
+    });
+}
 const SAFE_STYLE_PROPS = new Set([
     'background',
     'background-color',
@@ -559,7 +608,9 @@ function openCarrotImageViewer(documentRef, srcList, startIndex = 0) {
 function createCarrotImageStack(documentRef, tokens, side = 'user') {
     const wrap = documentRef.createElement('div');
     wrap.className = `carrot-image-line carrot-image-line-${side} carrot-image-line--stack`;
-    const srcList = tokens.map((t) => t.src);
+    // 直接在源头改写：堆叠缩略图之后会被 rewriteCatboxMedia 扫到，但全屏大图查看器是
+    // 挂在 document.body 上、用这份 srcList 原样建的，扫不到，所以这里必须先改好。
+    const srcList = tokens.map((t) => rewriteCatboxUrl(t.src));
     try {
         new CarrotPhotoStack(wrap, srcList, {
             onTap: (i) => openCarrotImageViewer(documentRef, srcList, i),
@@ -1057,6 +1108,7 @@ export function initFormatRenderer({
             preset: getPreset(),
             force: !!options.force,
         });
+        rewriteCatboxMedia(element, documentRef);
         if (typeof afterProcess === 'function') {
             afterProcess(element, { sourceText: readSourceText(element) });
         }

@@ -6,6 +6,7 @@ import {
     saveSettings,
 } from './config.js';
 import { POPUP_RESULT, POPUP_TYPE, Popup } from '/scripts/popup.js';
+import { rewriteCatboxUrl } from './catbox-proxy.js';
 
 // --- 后台保活 ---
 const SILENT_AUDIO_SRC = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YUAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
@@ -135,13 +136,37 @@ function applyMessageMetrics() {
     if (_msgMetricsObserver) return;
     const chat = document.getElementById('chat') || document.body;
     if (!chat) return;
+    // 攒一帧再批量打样式：流式输出时 ST 会不停重建消息内部节点，
+    // 以前每个新增节点都要立刻跑 2 次 querySelectorAll + 若干 !important 行内样式，
+    // 等于持续触发样式重算。
+    const pendingNodes = new Set();
+    let metricsHandle = 0;
+
+    const flushMetrics = () => {
+        metricsHandle = 0;
+        if (!pendingNodes.size) return;
+        const metrics = getMessageMetrics(); // 每帧读一次设置就够
+        const nodes = Array.from(pendingNodes);
+        pendingNodes.clear();
+        nodes.forEach((node) => {
+            if (node.isConnected) applyMessageMetricsWithin(node, metrics);
+        });
+    };
+
+    const scheduleMetrics = () => {
+        if (metricsHandle) return;
+        metricsHandle = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame(flushMetrics)
+            : setTimeout(flushMetrics, 16);
+    };
+
     _msgMetricsObserver = new MutationObserver((mutations) => {
-        const metrics = getMessageMetrics();
         for (const mut of mutations) {
             mut.addedNodes.forEach((node) => {
-                if (node.nodeType === 1) applyMessageMetricsWithin(node, metrics);
+                if (node.nodeType === 1) pendingNodes.add(node);
             });
         }
+        if (pendingNodes.size) scheduleMetrics();
     });
     _msgMetricsObserver.observe(chat, { childList: true, subtree: true });
 }
@@ -154,7 +179,8 @@ function buildGlobalFontCss(font) {
     if (!hasFont) return '';
 
     const name = hasFont ? escapeCssString(font.name.trim()) : '';
-    const url = hasFont ? escapeCssString(font.url.trim()) : '';
+    // 猫箱字体链接改走代理；格式/是否 CSS 的判断要看原始 URL 的扩展名，代理 URL 本身没有扩展名
+    const url = hasFont ? escapeCssString(rewriteCatboxUrl(font.url.trim())) : '';
     const format = hasFont ? getFontFormat(font.url) : '';
     const sourceCss = !hasFont
         ? ''
@@ -549,8 +575,9 @@ async function showFontAddPopup() {
 
 async function playSound(name) {
     const sounds = getSettings().notifSounds || {};
-    const url = sounds[name];
-    if (!url) return false;
+    const rawUrl = sounds[name];
+    if (!rawUrl) return false;
+    const url = rewriteCatboxUrl(rawUrl); // 猫箱直链走代理，其它链接原样播放
     let audio = _soundAudioCache.get(name);
     if (!audio || audio.src !== url) {
         audio = new Audio(url);

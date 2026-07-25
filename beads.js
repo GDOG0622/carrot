@@ -204,12 +204,6 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
         return el.getAttribute('is_user') === 'true' || el.classList.contains('user_mes');
     }
 
-    function pieceFor(role) {
-        const st = state();
-        const cfg = st.pendant[role];
-        return st.archive.find((p) => p.id === cfg.slotId) || null;
-    }
-
     function buildPendantElement(cfg, piece) {
         const el = documentRef.createElement('div');
         el.className = 'cip-bead-pendant-el';
@@ -259,14 +253,38 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
         const chat = documentRef.getElementById('chat');
         if (!chat) return;
         const st = state();
+
+        // 挂件用哪张图只取决于设置，跟具体是哪条消息无关。以前在下面的循环里逐条查，
+        // 而那个查找内部会调 state() —— 等于把整套设置归一化 + 旧数据迁移逻辑
+        // 按消息条数重跑一遍。这里整体算一次就够。
+        const cfg = { user: st.pendant.user, char: st.pendant.char };
+        const piece = {
+            user: cfg.user.enabled ? (st.archive.find((p) => p.id === cfg.user.slotId) || null) : null,
+            char: cfg.char.enabled ? (st.archive.find((p) => p.id === cfg.char.slotId) || null) : null,
+        };
+        const on = {
+            user: !!(cfg.user.enabled && piece.user?.image),
+            char: !!(cfg.char.enabled && piece.char?.image),
+        };
+
+        // 两边都没开：不再逐条遍历消息（没用过挂件的用户以前也要付这份全量扫描的钱），
+        // 只把之前可能留下的挂件和定位属性清干净就收工。
+        if (!on.user && !on.char) {
+            chat.querySelectorAll('.cip-bead-pendant-el').forEach((el) => el.remove());
+            chat.querySelectorAll('.mes[data-cip-bead-pendant]')
+                .forEach((mes) => mes.removeAttribute('data-cip-bead-pendant'));
+            return;
+        }
+
         chat.querySelectorAll('.mes').forEach((mes) => {
             const role = isUserMes(mes) ? 'user' : 'char';
-            mes.setAttribute('data-cip-bead-pendant', role);
             mes.querySelectorAll(':scope > .cip-bead-pendant-el').forEach((el) => el.remove());
-            const cfg = st.pendant[role];
-            const piece = pieceFor(role);
-            if (!cfg.enabled || !piece || !piece.image) return;
-            mes.appendChild(buildPendantElement(cfg, piece));
+            if (!on[role]) {
+                mes.removeAttribute('data-cip-bead-pendant');
+                return;
+            }
+            mes.setAttribute('data-cip-bead-pendant', role);
+            mes.appendChild(buildPendantElement(cfg[role], piece[role]));
         });
     }
 
@@ -275,15 +293,28 @@ export function initBeads({ documentRef = document, getSettings, saveSettings } 
             const chat = documentRef.getElementById('chat');
             if (!chat) return false;
             applyPendantToChat();
+
+            // applyPendantToChat 是整段聊天的全量重扫，一帧内被触发多次没有意义；
+            // 攒到 rAF 里合并成一次。
+            let sweepHandle = 0;
+            const scheduleSweep = () => {
+                if (sweepHandle) return;
+                sweepHandle = typeof requestAnimationFrame === 'function'
+                    ? requestAnimationFrame(() => { sweepHandle = 0; applyPendantToChat(); })
+                    : setTimeout(() => { sweepHandle = 0; applyPendantToChat(); }, 16);
+            };
+
             const observer = new MutationObserver((mutations) => {
-                let added = false;
-                mutations.forEach((m) => {
-                    m.addedNodes.forEach((node) => {
-                        if (node.nodeType !== Node.ELEMENT_NODE) return;
-                        if (node.classList?.contains('mes') || node.querySelector?.('.mes')) added = true;
-                    });
-                });
-                if (added) applyPendantToChat();
+                // 一旦确定有新消息就不用再查了：querySelector('.mes') 是子树搜索，
+                // 流式输出时每帧会有大量新增节点，全部查一遍纯属浪费。
+                for (const m of mutations) {
+                    let hit = false;
+                    for (const node of m.addedNodes) {
+                        if (node.nodeType !== Node.ELEMENT_NODE) continue;
+                        if (node.classList?.contains('mes') || node.querySelector?.('.mes')) { hit = true; break; }
+                    }
+                    if (hit) { scheduleSweep(); return; }
+                }
             });
             observer.observe(chat, { childList: true, subtree: true });
             return true;

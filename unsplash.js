@@ -93,17 +93,20 @@ export function createUnsplashProcessor({
     async function processMessageElement(element) {
         if (!element) return;
 
-        const text = element.textContent || element.innerText || '';
-        const hasUnsplashPlaceholder = unsplashPlaceholderRegex.test(text);
-        unsplashPlaceholderRegex.lastIndex = 0;
-
-        if (!hasUnsplashPlaceholder) {
+        // 没配 key 时直接退出：这条路径在流式输出里会被高频命中，绝不能先去读
+        // element.textContent（相当于把整条消息序列化一遍）再跑正则。
+        // 无 key 时原本的两个分支做的清理完全相同，所以提到最前面不改变行为。
+        if (!getUnsplashAccessKey()) {
             delete element.dataset.unsplashSignature;
             processedMessages.delete(element);
             return;
         }
 
-        if (!getUnsplashAccessKey()) {
+        const text = element.textContent || element.innerText || '';
+        const hasUnsplashPlaceholder = unsplashPlaceholderRegex.test(text);
+        unsplashPlaceholderRegex.lastIndex = 0;
+
+        if (!hasUnsplashPlaceholder) {
             delete element.dataset.unsplashSignature;
             processedMessages.delete(element);
             return;
@@ -177,9 +180,28 @@ export function createUnsplashProcessor({
 
         processExisting();
 
-        const observer = new MutationObserver((mutations) => {
-            const pending = new Set();
+        // 攒一帧再处理：observer 开了 characterData，流式输出时每个 tick 都会回调，
+        // 同一条消息在一帧内可能被排队几十次，没必要每次都重跑一遍
+        const pending = new Set();
+        let flushHandle = 0;
 
+        const flushPending = () => {
+            flushHandle = 0;
+            const items = Array.from(pending);
+            pending.clear();
+            items.forEach((element) => {
+                if (element.isConnected) processMessageElement(element);
+            });
+        };
+
+        const schedulePending = () => {
+            if (flushHandle) return;
+            flushHandle = typeof requestAnimationFrame === 'function'
+                ? requestAnimationFrame(flushPending)
+                : setTimeout(flushPending, 16);
+        };
+
+        const observer = new MutationObserver((mutations) => {
             const queueElement = (element) => {
                 if (!element) return;
                 if (!element.classList?.contains('mes_text')) {
@@ -216,7 +238,7 @@ export function createUnsplashProcessor({
                 }
             });
 
-            pending.forEach((element) => processMessageElement(element));
+            if (pending.size) schedulePending();
         });
 
         observer.observe(chatContainer, {

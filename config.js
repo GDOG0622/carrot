@@ -45,6 +45,9 @@ const DEFAULT_SETTINGS = {
     bubblePresets: {},
     syncFilename: '',
     localStorageMigrated: false,
+    // v8.0.49: 全酒馆猫箱代理。整个页面（含其它扩展）的 catbox 链接都改走后端中转，
+    // 国内网络不用梯子。极端情况下想彻底关掉就把它设成 false。
+    catboxProxyGlobal: true,
     // v8.0.38: 拼豆挂件（独立字段，避免和其它功能混在一起）
     // v8.0.41: 挂件改为 char/user 分别配置（位置/大小/旋转/动效），详细归一化逻辑在 beads.js 的 state() 里
     // v8.0.43: 9 格可调色板（palette），归一化也在 beads.js 的 state() 里

@@ -5,6 +5,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const manifest = require('./manifest.json');
 
@@ -83,6 +84,28 @@ function copyDirContents(source, dest) {
     }
 }
 
+// npm install 依赖（比如猫箱出站代理用的 https-proxy-agent）失败不影响主流程，
+// 只是那一小块可选功能会自动降级，所以这里只警告不抛错。
+function npmInstallDeps() {
+    try {
+        if (!fs.existsSync(path.join(__dirname, 'package.json'))) return { ok: true, skipped: true };
+        const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const result = spawnSync(npmCmd, ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+            cwd: __dirname,
+            timeout: 60000,
+            encoding: 'utf8',
+        });
+        if (result.error || result.status !== 0) {
+            console.warn('[carrot-plugin] npm install 失败，出站代理等可选功能可能不可用', result.error || result.stderr);
+            return { ok: false, error: result.error?.message || result.stderr || 'npm install 失败' };
+        }
+        return { ok: true };
+    } catch (e) {
+        console.warn('[carrot-plugin] npm install 异常', e?.message || e);
+        return { ok: false, error: e?.message || String(e) };
+    }
+}
+
 function syncPluginFiles() {
     const { source, checked } = findSourcePluginDir();
     if (!source) {
@@ -91,11 +114,13 @@ function syncPluginFiles() {
         throw err;
     }
     copyDirContents(source, __dirname);
+    const npmResult = npmInstallDeps();
     return {
         ok: true,
         source,
         target: __dirname,
         version: manifest.version,
+        npmInstall: npmResult,
     };
 }
 
@@ -169,6 +194,9 @@ async function init(router) {
     const uploadCache = require('./upload-cache');
     router.post('/uploads', express.raw({ type: 'image/*', limit: '12mb' }), uploadCache.upload);
     router.get('/uploads/:filename', uploadCache.serve);
+
+    // 猫箱等图床代理：浏览器端不再需要直连 catbox，由后端代下载 + 缓存
+    router.get('/img-proxy', require('./img-proxy').proxy);
 
     // Web Push 后端推送（浏览器被杀后仍可送达系统通知）
     const push = require('./push');

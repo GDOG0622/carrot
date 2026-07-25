@@ -100,6 +100,16 @@ if errorlevel 1 (
     exit /b 1
 )
 
+if exist "!DEST!\package.json" (
+    where npm >nul 2>&1
+    if not errorlevel 1 (
+        echo [步骤] 安装后端依赖 ^(npm install，用于猫箱出站代理等功能^)
+        pushd "!DEST!"
+        call npm install --omit=dev --no-audit --no-fund
+        popd
+    )
+)
+
 echo.
 echo ============================================================
 echo === 安装完成 ===

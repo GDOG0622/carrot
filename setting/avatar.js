@@ -1,3 +1,5 @@
+import { rewriteCatboxUrl } from '../catbox-proxy.js';
+
 export function initAvatarSettings(
     {
         charAvatarUrlInput,
@@ -83,22 +85,22 @@ export function initAvatarSettings(
         let cssRules = '';
         cssRules += `.custom-B_C_avar, .custom-B_U_avar { position: relative; overflow: visible !important; }\n`;
         if (charUrl) {
-            const safeCharUrl = charUrl.replace(/'/g, "\\'");
+            const safeCharUrl = rewriteCatboxUrl(charUrl).replace(/'/g, "\\'");
             cssRules += `.custom-B_C_avar { background-image: url('${safeCharUrl}') !important; }\n`;
         }
         if (userUrl) {
-            const safeUserUrl = userUrl.replace(/'/g, "\\'");
+            const safeUserUrl = rewriteCatboxUrl(userUrl).replace(/'/g, "\\'");
             cssRules += `.custom-B_U_avar { background-image: url('${safeUserUrl}') !important; }\n`;
         }
         if (charFrameUrl) {
-            const safeCharFrameUrl = charFrameUrl.replace(/'/g, "\\'");
+            const safeCharFrameUrl = rewriteCatboxUrl(charFrameUrl).replace(/'/g, "\\'");
             const charAdj = frameAdjustments.char;
             const charTransformX = -50 + charAdj.offsetX;
             const charTransformY = -50 + charAdj.offsetY;
             cssRules += `.custom-B_C_avar::after { content: ""; position: absolute; top: 50%; left: 50%; width: ${charAdj.size}%; height: ${charAdj.size}%; transform: translate(${charTransformX}%, ${charTransformY}%); background-image: url('${safeCharFrameUrl}'); background-repeat: no-repeat; background-position: center; background-size: contain; pointer-events: none; z-index: 1; }\n`;
         }
         if (userFrameUrl) {
-            const safeUserFrameUrl = userFrameUrl.replace(/'/g, "\\'");
+            const safeUserFrameUrl = rewriteCatboxUrl(userFrameUrl).replace(/'/g, "\\'");
             const userAdj = frameAdjustments.user;
             const userTransformX = -50 + userAdj.offsetX;
             const userTransformY = -50 + userAdj.offsetY;

@@ -3,35 +3,66 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.47';
-    const {
-        createSettingsStorage,
-        DEFAULT_FLOAT_ICON_URL,
-        getSettings,
-        migrateFromLocalStorage,
-        saveSettings,
-    } = await import(`./config.js?${V}`);
-    const { createUI } = await import(`./ui.js?${V}`);
-    const { injectExtensionDrawer } = await import(`./drawer.js?${V}`);
-    const {
-        buildStickerLookup,
-        replaceStickerPlaceholders: replaceStickerPlaceholdersCore,
-        reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
-    } = await import(`./stickers.js?${V}`);
-    const {
-        buildQqrLookup,
-        findLatestQqrImage,
-        resolveQqrImageReference,
-    } = await import(`./qqr.js?${V}`);
-    const { createUnsplashProcessor } = await import(`./unsplash.js?${V}`);
-    const { initFormatRenderer } = await import(`./format-renderer.js?${V}`);
-    const { initBackend } = await import(`./backend.js?${V}`);
-    const { initSendHook } = await import(`./send-hook.js?${V}`);
-    const { initVoiceInput } = await import(`./voice-input.js?${V}`);
-    const { initLinkVision } = await import(`./link-vision.js?${V}`);
-    const { buildCarrotImageToken, uploadCarrotImage } = await import(`./image-upload.js?${V}`);
-    const { initProactive } = await import(`./proactive.js?${V}`);
-    const { initBeads } = await import(`./beads.js?${V}`);
+    const V = 'v=8.0.50';
+
+    // v8.0.50: 模块并发加载。以前是 15 个 `await import` 串成一条链，每个都要等上一个
+    // 下载+执行完才发起下一个请求 —— 手机连远程酒馆时光排队就能耗掉一两秒。
+    // 这些模块彼此没有加载期依赖（顶层只有常量和函数声明，没有副作用），可以一起拉。
+    const [
+        {
+            createSettingsStorage,
+            DEFAULT_FLOAT_ICON_URL,
+            getSettings,
+            migrateFromLocalStorage,
+            saveSettings,
+        },
+        { rewriteCatboxUrl, initGlobalCatboxRewrite },
+    ] = await Promise.all([
+        import(`./config.js?${V}`),
+        import(`./catbox-proxy.js?${V}`),
+    ]);
+
+    // 猫箱代理要尽早接管：整个酒馆（含其它扩展）往 DOM 里塞的猫箱链接都改走后端中转。
+    // 放在其余模块之前启动，避免早期渲染的图片先直连失败一次。
+    if (getSettings().catboxProxyGlobal !== false) initGlobalCatboxRewrite(document);
+
+    const [
+        { createUI },
+        { injectExtensionDrawer },
+        {
+            buildStickerLookup,
+            replaceStickerPlaceholders: replaceStickerPlaceholdersCore,
+            reprocessStickerPlaceholders: reprocessStickerPlaceholdersCore,
+        },
+        {
+            buildQqrLookup,
+            findLatestQqrImage,
+            resolveQqrImageReference,
+        },
+        { createUnsplashProcessor },
+        { initFormatRenderer },
+        { initBackend },
+        { initSendHook },
+        { initVoiceInput },
+        { initLinkVision },
+        { buildCarrotImageToken, uploadCarrotImage },
+        { initProactive },
+        { initBeads },
+    ] = await Promise.all([
+        import(`./ui.js?${V}`),
+        import(`./drawer.js?${V}`),
+        import(`./stickers.js?${V}`),
+        import(`./qqr.js?${V}`),
+        import(`./unsplash.js?${V}`),
+        import(`./format-renderer.js?${V}`),
+        import(`./backend.js?${V}`),
+        import(`./send-hook.js?${V}`),
+        import(`./voice-input.js?${V}`),
+        import(`./link-vision.js?${V}`),
+        import(`./image-upload.js?${V}`),
+        import(`./proactive.js?${V}`),
+        import(`./beads.js?${V}`),
+    ]);
 
     // --- extension_settings 初始化 ---
     const settingsStorage = createSettingsStorage({
@@ -83,7 +114,7 @@
         button.style.width = `${floatSize}px`;
         button.style.height = `${floatSize}px`;
         button.style.opacity = String(floatOpacity);
-        button.style.backgroundImage = `url(${iconUrl})`;
+        button.style.backgroundImage = `url(${rewriteCatboxUrl(iconUrl)})`;
         button.style.backgroundSize = 'contain';
         button.style.backgroundRepeat = 'no-repeat';
         button.style.backgroundPosition = 'center';
@@ -552,7 +583,7 @@
             const e = document.createElement('div');
             e.className = 'cip-sticker-wrapper';
             const i = document.createElement('img');
-            ((i.src = t.url),
+            ((i.src = rewriteCatboxUrl(t.url)),
                 (i.title = t.desc),
                 (i.className = 'cip-sticker-item'),
                 (i.onclick = () => {
@@ -760,7 +791,7 @@
             });
 
             const image = document.createElement('img');
-            image.src = item.url;
+            image.src = rewriteCatboxUrl(item.url);
             image.alt = item.desc;
             image.loading = 'lazy';
 
