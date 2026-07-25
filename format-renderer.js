@@ -246,26 +246,41 @@ function createBubbleShell(documentRef, side, kind = 'text', { hasTail = true } 
     return { line, wrap };
 }
 
-function createTextBubble(documentRef, token, side, preset, options = {}) {
+// 酒馆自己的 messageFormatting 会处理 **粗体**、*斜体*、`代码`、<details> 这些标准
+// markdown/HTML；carrot 的气泡渲染以前直接用 textContent 塞文本，等于把这些语法原样
+// 显示成星号本身，没有真正渲染。这里统一走一遍格式化，跟 flushTextBuffer 里对普通文本
+// 段落的处理方式保持一致；formatContext 不可用或格式化失败时，安全兜底为纯文本。
+function applyFormattedBody(el, text, formatContext) {
+    el.textContent = text;
+    if (!formatContext) return;
+    try {
+        const formatted = formatContext.format(text);
+        if (typeof formatted === 'string' && formatted.length) {
+            el.innerHTML = formatted;
+        }
+    } catch (error) { /* 格式化失败就保留上面已经设置好的纯文本 */ }
+}
+
+function createTextBubble(documentRef, token, side, preset, options = {}, formatContext = null) {
     if (preset === 'avatarTransparent') {
-        return createAvatarTransparentBubble(documentRef, token, side);
+        return createAvatarTransparentBubble(documentRef, token, side, formatContext);
     }
     const { line, wrap } = createBubbleShell(documentRef, side, 'text', options);
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble';
-    bubble.textContent = token.body;
+    applyFormattedBody(bubble, token.body, formatContext);
     wrap.appendChild(bubble);
     return line;
 }
 
-function createAvatarTransparentBubble(documentRef, token, side) {
+function createAvatarTransparentBubble(documentRef, token, side, formatContext = null) {
     const line = createAvatarTransparentLine(documentRef, side);
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-avatar-transparent-bubble';
 
     const body = documentRef.createElement('span');
     body.className = 'carrot-avatar-transparent-body';
-    body.textContent = token.body;
+    applyFormattedBody(body, token.body, formatContext);
 
     bubble.append(
         createAvatarTransparentShine(documentRef),
@@ -302,9 +317,9 @@ function createAvatarTransparentDot(documentRef) {
     return dot;
 }
 
-function createVoiceBubble(documentRef, token, side, preset, options = {}) {
+function createVoiceBubble(documentRef, token, side, preset, options = {}, formatContext = null) {
     if (preset === 'avatarTransparent') {
-        return createAvatarTransparentVoice(documentRef, token, side);
+        return createAvatarTransparentVoice(documentRef, token, side, formatContext);
     }
     const { line, wrap } = createBubbleShell(documentRef, side, 'voice', options);
     const details = documentRef.createElement('details');
@@ -334,7 +349,7 @@ function createVoiceBubble(documentRef, token, side, preset, options = {}) {
     const body = documentRef.createElement('div');
     body.className = 'carrot-ios-voice-body';
     const paragraph = documentRef.createElement('p');
-    paragraph.textContent = token.body;
+    applyFormattedBody(paragraph, token.body, formatContext);
     body.appendChild(paragraph);
 
     details.append(summary, body);
@@ -342,7 +357,7 @@ function createVoiceBubble(documentRef, token, side, preset, options = {}) {
     return line;
 }
 
-function createAvatarTransparentVoice(documentRef, token, side) {
+function createAvatarTransparentVoice(documentRef, token, side, formatContext = null) {
     const line = createAvatarTransparentLine(documentRef, side);
     line.classList.add('carrot-avatar-transparent-voice-line');
 
@@ -380,7 +395,7 @@ function createAvatarTransparentVoice(documentRef, token, side) {
     const body = documentRef.createElement('div');
     body.className = 'carrot-avatar-transparent-voice-body';
     const paragraph = documentRef.createElement('p');
-    paragraph.textContent = token.body;
+    applyFormattedBody(paragraph, token.body, formatContext);
     body.appendChild(paragraph);
 
     details.append(summary, body);
@@ -444,14 +459,14 @@ function createTimestampLine(documentRef, token) {
     return container;
 }
 
-function createSystemLine(documentRef, token) {
+function createSystemLine(documentRef, token, formatContext = null) {
     const container = documentRef.createElement('div');
     container.className = 'carrot-render-system';
-    container.textContent = token.body;
+    applyFormattedBody(container, token.body, formatContext);
     return container;
 }
 
-function createRecallLine(documentRef, token) {
+function createRecallLine(documentRef, token, formatContext = null) {
     const outer = documentRef.createElement('div');
     outer.className = 'carrot-render-recall';
     const details = documentRef.createElement('details');
@@ -459,7 +474,7 @@ function createRecallLine(documentRef, token) {
     summary.textContent = '对方撤回了一条消息';
     const content = documentRef.createElement('div');
     content.className = 'carrot-render-recall-content';
-    content.textContent = token.body;
+    applyFormattedBody(content, token.body, formatContext);
     details.append(summary, content);
     outer.appendChild(details);
     return outer;
@@ -1025,9 +1040,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
         }
         const bubbleOptions = { hasTail: shouldRenderTail(tokens, index, preset) };
         if (token.type === 'textBubble') {
-            rendered.appendChild(createTextBubble(documentRef, token, side, preset, bubbleOptions));
+            rendered.appendChild(createTextBubble(documentRef, token, side, preset, bubbleOptions, formatContext));
         } else if (token.type === 'voiceBubble') {
-            rendered.appendChild(createVoiceBubble(documentRef, token, side, preset, bubbleOptions));
+            rendered.appendChild(createVoiceBubble(documentRef, token, side, preset, bubbleOptions, formatContext));
         } else if (token.type === 'dimensionBubble') {
             rendered.appendChild(createDimensionBubble(documentRef, token, side, preset, bubbleOptions));
         } else if (token.type === 'htmlBlock') {
@@ -1035,9 +1050,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
         } else if (token.type === 'timestamp') {
             rendered.appendChild(createTimestampLine(documentRef, token));
         } else if (token.type === 'system') {
-            rendered.appendChild(createSystemLine(documentRef, token));
+            rendered.appendChild(createSystemLine(documentRef, token, formatContext));
         } else if (token.type === 'recall') {
-            rendered.appendChild(createRecallLine(documentRef, token));
+            rendered.appendChild(createRecallLine(documentRef, token, formatContext));
         } else if (token.type === 'linkCard') {
             rendered.appendChild(createLinkCard(documentRef, token, side));
         } else if (token.type === 'qqrLine') {
