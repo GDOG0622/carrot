@@ -923,10 +923,50 @@ function parseLine(line, isUser) {
     };
 }
 
+// 独占一整行、且不是安全 HTML 标签（div/details/...）也不是 carrot 自己的特殊标签
+// （link/carrot-image）的包装标签，视为"透明包装"：常见于角色卡/预设约定把正文
+// 包一层 <content> 之类的容器。这种标签本身没有语义，但如果整段被当成不透明的
+// htmlBlock 处理，里面每一行原本该被 carrot 识别的东西（时间戳『...|...』、
+// 整行引号对话、系统行 +...+、维度气泡 [...|...|...] 等）就全部失效——因为
+// htmlBlock 是整块塞给 messageFormatting，不会再逐行走 parseLine。
+// 这里只拆标签本身占的那两行，中间内容原样保留，交回主循环按普通行逐条识别。
+function isTransparentWrapperTag(tag) {
+    return tag !== 'link' && tag !== 'carrot-image' && !DROP_HTML_TAGS.has(tag) && !SAFE_HTML_TAGS.has(tag);
+}
+
+function findTransparentWrapperBounds(lines) {
+    for (let i = 0; i < lines.length; i += 1) {
+        const openMatch = lines[i].match(/^\s*<([a-z][\w:-]*)(?:\s[^>]*)?>\s*$/i);
+        if (!openMatch) continue;
+        const tag = openMatch[1].toLowerCase();
+        if (!isTransparentWrapperTag(tag)) continue;
+        const closeRe = new RegExp(`^\\s*</${tag}>\\s*$`, 'i');
+        for (let j = i + 1; j < lines.length; j += 1) {
+            if (closeRe.test(lines[j])) return { openIndex: i, closeIndex: j };
+        }
+    }
+    return null;
+}
+
+function stripTransparentWrapperLines(lines) {
+    let current = lines;
+    let bounds;
+    let guard = 0; // 异常输入（标签写错没法配对）时的兜底，避免死循环
+    while ((bounds = findTransparentWrapperBounds(current)) && (guard += 1) < 20) {
+        current = [
+            ...current.slice(0, bounds.openIndex),
+            ...current.slice(bounds.openIndex + 1, bounds.closeIndex),
+            ...current.slice(bounds.closeIndex + 1),
+        ];
+    }
+    return current;
+}
+
 function parseTokens(text, isUser) {
-    const lines = normalizeText(text).split('\n');
+    const rawLines = normalizeText(text).split('\n');
+    const lines = stripTransparentWrapperLines(rawLines);
     const tokens = [];
-    let changed = false;
+    let changed = lines.length !== rawLines.length; // 拆了包装标签本身就算一次改动
 
     for (let i = 0; i < lines.length; i += 1) {
         if (/^\s*$/.test(lines[i])) continue;
