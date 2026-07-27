@@ -589,7 +589,9 @@ async function runScheme(user, globalConfig, scheme) {
     async function generateAndSend() {
         const template = globalPrompt || DEFAULT_GLOBAL_PROMPT;
         const systemPrompt = buildGenerationPrompt(template);
-        const triggerRaw = '+BUNNY：{{user}} 当前不在线，现在是 {{date}} {{time}}，请 {{char}} 以角色身份主动发一条消息+';
+        // 触发语的措辞很要紧：写成"{{user}} 不在线"会被模型当成异常状态，顺着就演成查岗、
+        // 担心、要打电话。这里明确把沉默定义成常态，并把消息的由头指回 char 自己的生活。
+        const triggerRaw = '+BUNNY：现在是 {{date}} {{time}}，{{user}} 此刻没在看手机。这很正常——可能在忙、在睡，也可能一整天都没看手机，不要当成异常，不要追问怎么了、为什么不回，不要表现出担心、委屈或试探，也不要提出打电话、找人、上门这类升级动作。请 {{char}} 以角色身份主动发一条消息，由头来自他自己此刻的生活：看到的东西、想分享的链接、身边刚发生的事、突然想起的念头。可长可短，允许只有一句话。+';
         const trigger = { role: 'user', content: buildGenerationPrompt(triggerRaw) };
 
         const raw = await callAI(user, apiProfileId, apiModel, systemPrompt, [...context, trigger]);
@@ -613,12 +615,22 @@ async function runScheme(user, globalConfig, scheme) {
 
     if (scheme.mode === 'ai') {
         const now = formatNow();
-        const judgeSystemPrompt = buildSystemPrompt(card, '') + `\n\n你现在不是在角色扮演对话，而是在后台执行一次判断任务。请判断此刻角色是否应该主动联系 user（考虑作息、上次互动时间、氛围等，避免深夜打扰或过于频繁）。
+        const judgeSystemPrompt = buildSystemPrompt(card, '') + `\n\n你现在不是在角色扮演对话，而是在后台执行一次判断任务：判断此刻${card.name || '角色'}是否真的会主动给 user 发一条消息。
+
+判断准则：
+1. 发和不发都是正常结果，不必勉强凑向任何一边。角色此刻有由头（看到了什么、发生了什么、突然想起什么）就发，没有就不发——不发不需要理由，也不需要论证或补偿。
+2. 关键是：他并非非发不可。不要为了让角色说上话而去替他找理由、造由头。
+3. user 长时间没回消息本身不构成理由。现实里一个人一整天不看手机是正常的，不必解读成失联、出事、生气或冷落；角色不需要因此追问、担心、反复确认或升级联系方式。
+4. 角色当地时间的深夜到清晨（约 23:00–07:00）几乎总是不发，除非他此刻恰好醒着且有非说不可的事。
+5. 刚互动过不久、或上一条消息还悬在那里等 user 回应时，不发。
+6. 角色自己正在忙、在睡、在专注做别的事时，不发。
+
 无论上面的聊天记录进行到哪里，都不要续写剧情或以角色身份说话，也不要输出思考过程。只输出一个 JSON 对象，不要有任何其他文字、不要用 markdown 代码块包裹：
-如果不该发：{"send": false}
-如果该发：{"send": true}`;
+不发：{"send": false, "reason": "一句话说明"}
+要发：{"send": true, "reason": "一句话说明他此刻要开口的由头"}`;
         // 明确追加一条 user 提问收尾：messages 数组最后一条如果是历史剧情，模型会倾向于"接着演"而不是停下回答判断问题。
-        const judgeInstruction = { role: 'user', content: `（系统提示：当前时间 ${now}。请立刻输出上述格式的 JSON 判断结果，不要扮演角色回复，不要输出思考过程。）` };
+        const judgeInstruction = { role: 'user', content: `（系统提示：当前时间 ${now}。请立刻输出上述格式的 JSON 判断结果，不要扮演角色回复，不要输出思考过程。发和不发都是正常结果。）` };
+        // 判断是个二值决策，不需要创造力：温度跟生成阶段（0.9）分开，避免同样的处境两次跑出不同结论。
         const raw = await callAI(user, apiProfileId, apiModel, judgeSystemPrompt, [...context, judgeInstruction], { jsonMode: true });
         const decision = extractFirstJsonObject(raw);
         if (!decision.send) {
