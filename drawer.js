@@ -85,6 +85,12 @@ function normalizeMessageLetterSpacing(value) {
 // 从而盖过 carrot 注入的样式表规则。行内 style 的 !important 优先级高于任何外部样式表，
 // 无论对方多具体、加没加 !important，都必胜。度量走这里，字体家族仍走 <style>（buildGlobalFontCss）。
 const CARROT_MSG_TEXT_SELECTOR = '.mes_text';
+// 段间距的落点。酒馆原生消息里「一段」就是 showdown 出来的 <p>；胡萝卜自定义渲染的消息
+// 则不是——气泡/系统行/时间戳这些块级元素都是 <div>，而且 v8.0.55 把 messageFormatting
+// 多包的那层 <p> 拆掉之后，气泡里已经完全没有 <p> 可打了（以前那份 margin 还是打在气泡
+// 内部、把气泡撑高，本来也不是段间距该有的样子）。所以这里补上 .carrot-format-rendered
+// 的顶层块：一块就是一段，段间距就是块与块之间的距离，正文行和气泡的行为也一致了。
+const CARROT_MSG_PARAGRAPH_SELECTOR = '.mes_text p, .mes_text .carrot-format-rendered > *';
 let _msgMetricsObserver = null;
 
 function getMessageMetrics() {
@@ -125,8 +131,8 @@ function applyMessageMetricsWithin(root, m) {
     if (!root) return;
     if (root.matches?.(CARROT_MSG_TEXT_SELECTOR)) applyMetricsToTextEl(root, m);
     root.querySelectorAll?.(CARROT_MSG_TEXT_SELECTOR).forEach((el) => applyMetricsToTextEl(el, m));
-    if (root.matches?.('.mes_text p')) applyParagraphToEl(root, m);
-    root.querySelectorAll?.('.mes_text p').forEach((p) => applyParagraphToEl(p, m));
+    if (root.matches?.(CARROT_MSG_PARAGRAPH_SELECTOR)) applyParagraphToEl(root, m);
+    root.querySelectorAll?.(CARROT_MSG_PARAGRAPH_SELECTOR).forEach((p) => applyParagraphToEl(p, m));
 }
 
 function applyMessageMetrics() {
