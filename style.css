@@ -2960,3 +2960,21 @@ emoji-picker {
     color: var(--cip-insert-text-color);
     cursor: pointer;
 }
+
+/* 走过酒馆 messageFormatting 的正文（气泡 / 系统行 / 撤回 / 普通段落）。
+   放在文件末尾是为了在同优先级下压过前面容器自己的 white-space。
+   1) 换行此时已经是 <br>，再叠 pre-wrap 会把 showdown 留下的 \n 也渲染出来，
+      每句下面多一条空白；
+   2) 多块级内容（列表/代码块）时首尾块元素的外边距由容器 padding 负责，
+      不再白拿一份主题的 p margin。 */
+.carrot-formatted-body {
+    white-space: normal;
+}
+
+.carrot-formatted-body > :first-child {
+    margin-top: 0;
+}
+
+.carrot-formatted-body > :last-child {
+    margin-bottom: 0;
+}

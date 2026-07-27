@@ -250,13 +250,33 @@ function createBubbleShell(documentRef, side, kind = 'text', { hasTail = true } 
 // markdown/HTML；carrot 的气泡渲染以前直接用 textContent 塞文本，等于把这些语法原样
 // 显示成星号本身，没有真正渲染。这里统一走一遍格式化，跟 flushTextBuffer 里对普通文本
 // 段落的处理方式保持一致；formatContext 不可用或格式化失败时，安全兜底为纯文本。
+// showdown 一定会把正文包一层 <p>。这层 <p> 塞进 carrot 自己的容器里是纯粹的累赘：
+// 气泡/系统行本来就有自己的 padding，而这层 <p> 会白拿一份主题的 p 外边距（旗袍是
+// margin-bottom: 20px），每句话下面就多出一条空白；塞进 <p class="carrot-render-text-line">
+// 时还会变成 p 套 p 的非法嵌套。内容只有这一个顶层段落时（换行不空行的情况下就是全部），
+// 直接把这层壳拆掉，其它情况（列表、代码块等多个块级元素）原样保留。
+function unwrapSoleParagraph(documentRef, html) {
+    const template = documentRef.createElement('template');
+    template.innerHTML = html;
+    const nodes = Array.from(template.content.childNodes)
+        .filter((node) => node.nodeType !== Node.TEXT_NODE || node.textContent.trim());
+    if (nodes.length === 1 && nodes[0].nodeType === Node.ELEMENT_NODE && nodes[0].tagName === 'P' && !nodes[0].attributes.length) {
+        return nodes[0].innerHTML;
+    }
+    return html;
+}
+
 function applyFormattedBody(el, text, formatContext) {
     el.textContent = text;
+    el.classList.remove('carrot-formatted-body');
     if (!formatContext) return;
     try {
         const formatted = formatContext.format(text);
         if (typeof formatted === 'string' && formatted.length) {
-            el.innerHTML = formatted;
+            el.innerHTML = unwrapSoleParagraph(el.ownerDocument || document, formatted);
+            // 标记走过 messageFormatting：换行此时已经是 <br>，容器上的 pre-wrap 必须关掉，
+            // 否则 showdown 留在标签之间的 \n 会跟 <br> 叠成两次换行。见 style.css。
+            el.classList.add('carrot-formatted-body');
         }
     } catch (error) { /* 格式化失败就保留上面已经设置好的纯文本 */ }
 }
@@ -1053,15 +1073,7 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
         textBuffer = [];
         if (!merged.trim()) return;
         const line = createTextLine(documentRef, { body: merged });
-        if (formatContext) {
-            try {
-                const formatted = formatContext.format(merged);
-                if (typeof formatted === 'string' && formatted.length) {
-                    line.textContent = '';
-                    line.innerHTML = formatted;
-                }
-            } catch (error) { /* keep plain textContent */ }
-        }
+        applyFormattedBody(line, merged, formatContext);
         rendered.appendChild(line);
     };
     for (let index = 0; index < tokens.length; index += 1) {
