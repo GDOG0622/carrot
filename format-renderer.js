@@ -989,7 +989,15 @@ function parseTokens(text, isUser) {
     let changed = lines.length !== rawLines.length; // 拆了包装标签本身就算一次改动
 
     for (let i = 0; i < lines.length; i += 1) {
-        if (/^\s*$/.test(lines[i])) continue;
+        // 空行是作者写下的段落分隔，必须留成一个空 text token：renderTokens 见到它才会
+        // flushTextBuffer，把前面攒的行收成独立的一段 <p>。直接 continue 掉的话，整条
+        // 消息会并成一个 <p>、段落之间只剩 <br>——原生消息里本该按段落走的东西（主题的
+        // 段落外边距、插件的「message 段间距」）就全都没有落点了。下游的 shouldRenderTail
+        // 本来就是按「可能存在空 text token」写的。
+        if (/^\s*$/.test(lines[i])) {
+            tokens.push({ type: 'text', body: '' });
+            continue;
+        }
 
         const linkBlock = parseLinkBlock(lines, i, isUser);
         if (linkBlock) {
