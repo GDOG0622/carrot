@@ -5,8 +5,10 @@ plugin/uploads/
 node_modules/
 
 # 内部文档，只存本地不进 GitHub
-README.md
+# 注意：README.md 现在是给 GitHub 看的公开说明，不再忽略
 todo.md
+README_TOAI
+PLAN_*.md
 
 # Claude Code 的本地配置和笔记。VPS_ACCESS_NOTE.md 里有服务器 IP / SSH 端口，
 # 这是公开仓库，绝对不能进 git
