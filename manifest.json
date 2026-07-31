@@ -3,6 +3,7 @@
   "display_name": "兔子不吃胡萝卜",
   "version": "8.0.58",
   "manifest_version": 7,
+  "author": BUNNY,
   "description": "胡萝卜快速输入面板 v8 - 后端 plugin + 链接卡片 + 拼豆挂件",
   "js": ["script.js"],
   "css": ["style.css"]
