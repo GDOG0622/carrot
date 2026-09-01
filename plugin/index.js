@@ -192,7 +192,7 @@ async function init(router) {
 
     // carrot 图片上传与静态服务
     const uploadCache = require('./upload-cache');
-    router.post('/uploads', express.raw({ type: 'image/*', limit: '12mb' }), uploadCache.upload);
+    router.post('/uploads', express.raw({ type: 'image/*', limit: '66mb' }), uploadCache.upload);
     router.get('/uploads/:filename', uploadCache.serve);
 
     // 猫箱等图床代理：浏览器端不再需要直连 catbox，由后端代下载 + 缓存

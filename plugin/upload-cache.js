@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_FILES = 10;
-const MAX_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = 66 * 1024 * 1024;
 
 function ensureDir() {
     if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -51,7 +51,7 @@ function upload(req, res) {
 
     const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body || []);
     if (!bytes.length) return res.status(400).json({ ok: false, error: '图片为空' });
-    if (bytes.length > MAX_BYTES) return res.status(413).json({ ok: false, error: '图片超过 12MB' });
+    if (bytes.length > MAX_BYTES) return res.status(413).json({ ok: false, error: '图片超过 66MB' });
 
     const hash = crypto.createHash('sha1')
         .update(bytes)
