@@ -415,7 +415,7 @@ async function showSystemNotification(title, body) {
     // 显示很不可靠（常常静默不弹），registration.showNotification() 才稳定，
     // 也和 Web Push 的通知走同一条路。拿不到 SW 时再退回 new Notification()。
     try {
-        const { ensureNotifRegistration } = await import('./push-client.js');
+        const { ensureNotifRegistration } = await import('./push-client.js?v=8.0.59');
         const registration = await ensureNotifRegistration();
         if (registration?.showNotification) {
             await registration.showNotification(safeTitle, options);
@@ -640,12 +640,22 @@ function initNotificationSounds() {
         const notifyUser = async (title, body) => {
             const s = getSettings();
             if (!document.hidden && document.hasFocus()) return;
+            if (s.notifWebPush) {
+                try {
+                    const push = await import('./push-client.js?v=8.0.59');
+                    if (await push.getBackendPushMode() === 'termux-local') {
+                        const result = await push.sendBackendPush(title, body);
+                        if (!result?.ok) console.warn('[carrot] Termux 本地通知失败', result?.error);
+                        return;
+                    }
+                } catch (e) { console.warn('[carrot] 检测本地通知失败', e); }
+            }
             let localShown = false;
             if (s.notifPopupEnabled) {
                 localShown = await showSystemNotification(title, body);
             }
             if (s.notifWebPush && !localShown) {
-                import('./push-client.js')
+                import('./push-client.js?v=8.0.59')
                     .then((m) => m.sendBackendPush(title, body))
                     .catch(() => {});
             }
@@ -864,14 +874,14 @@ export function injectExtensionDrawer({
                         </label>
                         <label class="cip-ext-label checkbox_label">
                             <input type="checkbox" id="cip-ext-notif-webpush" ${s.notifWebPush ? 'checked' : ''}>
-                            <span>后端推送（Web Push，浏览器被杀后仍可送达）</span>
+                            <span id="cip-ext-notif-webpush-label">后端推送（Web Push，浏览器被杀后仍可送达）</span>
                         </label>
                     </div>
                     <div class="cip-ext-field">
                         <div class="cip-ext-notif-perm-row">
                             <button id="cip-ext-notif-webpush-test" class="menu_button">测试后端推送</button>
                         </div>
-                        <div style="font-size:.78em;color:#888;margin-top:.3em;line-height:1.5;">
+                        <div id="cip-ext-notif-webpush-help" style="font-size:.78em;color:#888;margin-top:.3em;line-height:1.5;">
                             由 carrot 后端经系统推送通道送达，需要 HTTPS 域名下开启一次。iOS 需 16.4+ 且先「分享 → 添加到主屏幕」，从主屏幕图标打开酒馆后再开启。可与「后台时弹出系统通知」同开，自动去重：本地通知优先，弹不出来时后端推送兜底。
                         </div>
                     </div>
@@ -1345,15 +1355,25 @@ function bindPromptPane(wrapper, s) {
     const notifWebPushCb = document.getElementById('cip-ext-notif-webpush');
     const notifWebPushTestBtn = document.getElementById('cip-ext-notif-webpush-test');
 
+    import('./push-client.js?v=8.0.59').then((m) => m.getBackendPushMode()).then((mode) => {
+        if (mode !== 'termux-local') return;
+        const label = document.getElementById('cip-ext-notif-webpush-label');
+        const help = document.getElementById('cip-ext-notif-webpush-help');
+        if (label) label.textContent = '后端通知（Termux 本机直达，无需 Google 推送）';
+        if (help) help.textContent = '本机通过 localhost 访问 Termux 酒馆时使用安卓本地通知。新版 Google Play 版已内置支持，无需额外 App；GitHub/F-Droid 版需同来源的 Termux:API 应用及 pkg install termux-api。请允许对应应用的安卓通知权限。无需 Google 网络、浏览器推送权限或 HTTPS；酒馆后端须保持运行。上方权限和测试按钮仅用于浏览器通知，请点“测试 Termux 本地通知”确认。';
+        if (notifWebPushTestBtn) notifWebPushTestBtn.textContent = '测试 Termux 本地通知';
+    }).catch(() => {});
+
     notifWebPushCb?.addEventListener('change', async () => {
+        if (notifWebPushTestBtn) notifWebPushTestBtn.disabled = true;
         if (notifWebPushCb.checked) {
             notifWebPushCb.disabled = true;
             try {
-                const { enableBackendPush } = await import('./push-client.js');
+                const { enableBackendPush } = await import('./push-client.js?v=8.0.59');
                 const result = await enableBackendPush();
                 s.notifWebPush = true;
                 saveSettings();
-                setSoundStatus(`✅ 后端推送已开启（当前 ${result.count || 1} 个设备已订阅）`);
+                setSoundStatus(result.mode === 'termux-local' ? '✅ Termux 本地通知已开启，请点击测试确认安卓通知权限' : `✅ 后端推送已开启（当前 ${result.count || 1} 个设备已订阅）`);
             } catch (e) {
                 notifWebPushCb.checked = false;
                 s.notifWebPush = false;
@@ -1361,32 +1381,43 @@ function bindPromptPane(wrapper, s) {
                 setSoundStatus(`❌ ${e?.message || '开启后端推送失败'}`);
             } finally {
                 notifWebPushCb.disabled = false;
+                if (notifWebPushTestBtn) notifWebPushTestBtn.disabled = false;
             }
         } else {
+            notifWebPushCb.disabled = true;
             s.notifWebPush = false;
             saveSettings();
             try {
-                const { disableBackendPush } = await import('./push-client.js');
+                const { disableBackendPush } = await import('./push-client.js?v=8.0.59');
                 await disableBackendPush();
-            } catch {}
-            setSoundStatus('后端推送已关闭（本设备订阅已注销）');
+                setSoundStatus('后端通知已关闭');
+            } catch (e) {
+                s.notifWebPush = true;
+                notifWebPushCb.checked = true;
+                saveSettings();
+                setSoundStatus(`❌ ${e?.message || '关闭后端通知失败'}`);
+            } finally {
+                notifWebPushCb.disabled = false;
+                if (notifWebPushTestBtn) notifWebPushTestBtn.disabled = false;
+            }
         }
     });
 
     notifWebPushTestBtn?.addEventListener('click', async (e) => {
         e.stopPropagation();
         notifWebPushTestBtn.disabled = true;
+        if (notifWebPushCb) notifWebPushCb.disabled = true;
         try {
-            const { enableBackendPush, sendBackendPush } = await import('./push-client.js');
+            const { enableBackendPush, sendBackendPush, getBackendPushMode } = await import('./push-client.js?v=8.0.59');
             // 还没订阅（没勾开关，或勾了但没订上）时，先自动订阅一次再测——省得报「没有已订阅的设备」
-            if (!s.notifWebPush || !notifWebPushCb?.checked) {
+            if (!s.notifWebPush || !notifWebPushCb?.checked || await getBackendPushMode() === 'termux-local') {
                 setSoundStatus('正在开启后端推送…');
                 try {
                     const enabled = await enableBackendPush();
                     s.notifWebPush = true;
                     saveSettings();
                     if (notifWebPushCb) notifWebPushCb.checked = true;
-                    setSoundStatus(`✅ 后端推送已开启（${enabled.count || 1} 个设备），正在发送测试…`);
+                    setSoundStatus(enabled.mode === 'termux-local' ? '正在测试 Termux 本地通知…' : `✅ 后端推送已开启（${enabled.count || 1} 个设备），正在发送测试…`);
                 } catch (err) {
                     setSoundStatus(`❌ ${err?.message || '开启后端推送失败'}`);
                     return;
@@ -1394,12 +1425,15 @@ function bindPromptPane(wrapper, s) {
             }
             const result = await sendBackendPush('carrot 测试推送', '收到这条说明后端推送链路正常', 'carrot-push-test');
             if (result?.ok && result.sent > 0) {
-                setSoundStatus(`✅ 已推送到 ${result.sent} 个设备${result.removed ? `（清理了 ${result.removed} 个失效订阅）` : ''}`);
+                setSoundStatus(result.mode === 'termux-local' ? '✅ 已调用安卓本地通知；若未显示，请检查 Termux（或 Termux:API）的通知权限' : `✅ 已推送到 ${result.sent} 个设备${result.removed ? `（清理了 ${result.removed} 个失效订阅）` : ''}`);
             } else {
-                setSoundStatus(`❌ ${result?.error || '推送失败，请确认后端已同步到 v8.0.25+'}`);
+                setSoundStatus(`❌ ${result?.error || '推送未送达，请检查后端日志及推送服务网络连接'}`);
             }
+        } catch (err) {
+            setSoundStatus(`❌ ${err?.message || '测试后端通知失败'}`);
         } finally {
             notifWebPushTestBtn.disabled = false;
+            if (notifWebPushCb) notifWebPushCb.disabled = false;
         }
     });
 
@@ -1526,7 +1560,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.52';
+            const FE_VERSION = '8.0.53';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

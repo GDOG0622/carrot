@@ -200,6 +200,8 @@ async function init(router) {
 
     // Web Push 后端推送（浏览器被杀后仍可送达系统通知）
     const push = require('./push');
+    router.get('/push/capabilities', push.capabilities);
+    router.post('/push/local', push.localSettings);
     router.get('/push/public-key', push.publicKey);
     router.post('/push/subscribe', push.subscribe);
     router.post('/push/unsubscribe', push.unsubscribe);

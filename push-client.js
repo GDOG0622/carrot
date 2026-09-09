@@ -4,6 +4,32 @@
 import { jsonRequestHeaders } from './request-headers.js';
 
 const BASE = '/api/plugins/carrot/push';
+let subscriptionOperation = Promise.resolve();
+
+function serializeSubscription(operation) {
+    const result = subscriptionOperation.then(operation);
+    subscriptionOperation = result.catch(() => {});
+    return result;
+}
+
+export async function getBackendPushMode() {
+    // Remote deployments need no extra request and retain the existing Web Push flow.
+    if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(window.location.hostname)) return 'webpush';
+    const res = await fetch(`${BASE}/capabilities`);
+    if (res.status === 404) return 'webpush'; // Older backends.
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || '检测后端通知方式失败');
+    return data.mode === 'termux-local' ? 'termux-local' : 'webpush';
+}
+
+async function setLocalPush(enabled) {
+    const res = await fetch(`${BASE}/local`, {
+        method: 'POST', headers: jsonRequestHeaders(), body: JSON.stringify({ enabled }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || '设置 Termux 本地通知失败');
+    return data;
+}
 
 export function isPushSupported() {
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -91,7 +117,17 @@ export async function ensureNotifRegistration() {
  * 开启后端推送：申请通知权限 → 注册 SW → 用后端 VAPID 公钥订阅 → 上报订阅。
  * 失败时抛出带中文说明的 Error。
  */
-export async function enableBackendPush() {
+export function enableBackendPush() {
+    return serializeSubscription(enablePush);
+}
+
+async function enablePush() {
+    if (await getBackendPushMode() === 'termux-local') {
+        const data = await setLocalPush(true);
+        // Remove only this browser's former subscription; preserve other devices.
+        await unsubscribeBrowserPush();
+        return data;
+    }
     if (!isPushSupported()) {
         if (!window.isSecureContext) {
             throw new Error('当前是 HTTP 直连，浏览器禁用了推送订阅。请用 HTTPS 域名打开酒馆后再开启（开启一次后，其它访问方式也能触发推送）');
@@ -141,13 +177,20 @@ export async function enableBackendPush() {
 }
 
 /** 关闭后端推送：注销本设备订阅并通知后端删除 */
-export async function disableBackendPush() {
+export function disableBackendPush() {
+    return serializeSubscription(async () => {
+        if (await getBackendPushMode() === 'termux-local') await setLocalPush(false);
+        await unsubscribeBrowserPush();
+    });
+}
+
+async function unsubscribeBrowserPush() {
     try {
         if (!('serviceWorker' in navigator)) return;
         // 按 scope 找到 carrot 自己的 SW 注册（scope 在扩展子目录，getRegistration() 无参拿不到）
-        const swPath = swUrl().pathname;
+        const scope = new URL('./', swUrl()).href;
         const regs = await navigator.serviceWorker.getRegistrations();
-        const reg = regs.find((r) => swPath.startsWith(new URL(r.scope).pathname));
+        const reg = regs.find((r) => r.scope === scope);
         const sub = await reg?.pushManager?.getSubscription();
         if (sub) {
             await fetch(`${BASE}/unsubscribe`, {
@@ -166,16 +209,19 @@ export async function disableBackendPush() {
  * 启动时静默恢复订阅：清缓存会注销 Service Worker，这里自动重建。
  * 权限未授予/环境不支持时静默跳过，不打扰用户。
  */
-export async function resyncBackendPush() {
-    if (!isPushSupported()) return false;
-    if (Notification.permission !== 'granted') return false;
-    try {
-        await enableBackendPush();
-        return true;
-    } catch (e) {
-        console.warn('[carrot] 恢复推送订阅失败', e);
-        return false;
-    }
+export function resyncBackendPush() {
+    return serializeSubscription(async () => {
+        try {
+            if (await getBackendPushMode() !== 'termux-local') {
+                if (!isPushSupported() || Notification.permission !== 'granted') return false;
+            }
+            await enablePush();
+            return true;
+        } catch (e) {
+            console.warn('[carrot] 恢复推送订阅失败', e);
+            return false;
+        }
+    });
 }
 
 /**

@@ -4,10 +4,12 @@
 const fs = require('fs');
 const path = require('path');
 const { generateVapidKeys, sendWebPush } = require('./web-push');
+const termux = require('./termux-notify');
 
 const DATA_DIR = path.join(__dirname, 'push-data');
 const VAPID_FILE = path.join(DATA_DIR, 'vapid.json');
 const SUBS_FILE = path.join(DATA_DIR, 'subscriptions.json');
+const LOCAL_FILE = path.join(DATA_DIR, 'termux-local.json');
 const MAX_SUBS = 8; // 最多保留 8 个设备订阅，超出淘汰最旧的
 
 function loadJson(file, fallback) {
@@ -35,6 +37,30 @@ function getVapid() {
 
 const loadSubs = () => loadJson(SUBS_FILE, []);
 const saveSubs = (subs) => saveJson(SUBS_FILE, subs);
+
+function capabilities(req, res) {
+    res.json({ ok: true, mode: termux.isLocalRequest(req) ? 'termux-local' : 'webpush' });
+}
+
+function localSettings(req, res) {
+    if (!termux.isLocalRequest(req)) return res.status(403).json({ ok: false, error: '仅限 Termux 本机通过 localhost 访问' });
+    if (typeof req.body?.enabled !== 'boolean') return res.status(400).json({ ok: false, error: '缺少 enabled' });
+    try {
+        if (req.body.enabled) termux.checkReady();
+        saveJson(LOCAL_FILE, { enabled: req.body.enabled });
+        res.json({ ok: true, count: req.body.enabled ? 1 : 0, mode: 'termux-local' });
+    } catch (e) {
+        res.status(500).json({ ok: false, error: e.message });
+    }
+}
+
+async function sendLocal(payload) {
+    if (!termux.isTermux() || !loadJson(LOCAL_FILE, {}).enabled) {
+        return { ok: false, sent: 0, error: '请先开启 Termux 本地通知' };
+    }
+    try { return await termux.send(payload); }
+    catch (e) { return { ok: false, sent: 0, error: e.message, mode: 'termux-local' }; }
+}
 
 function publicKey(req, res) {
     try {
@@ -69,6 +95,16 @@ function unsubscribe(req, res) {
 
 // 核心推送逻辑，供 express handler 和其他模块（如 proactive.js）直接调用
 async function sendToAllSubscriptions(payload) {
+    // Scheduled proactive messages can reach both the local owner and remote Web Push subscribers.
+    const local = termux.isTermux() && loadJson(LOCAL_FILE, {}).enabled ? await sendLocal(payload) : null;
+    const web = await sendWebSubscriptions(payload);
+    if (!local) return web;
+    return { ok: local.ok || web.sent > 0, sent: local.sent + web.sent,
+        failed: (local.ok ? 0 : 1) + (web.failed || 0), removed: web.removed || 0,
+        ...(!local.ok && !web.sent ? { error: local.error } : {}) };
+}
+
+async function sendWebSubscriptions(payload) {
     const subs = loadSubs();
     if (!subs.length) {
         return { ok: false, sent: 0, error: '没有已订阅的设备，请先在通知设置里开启后端推送' };
@@ -106,11 +142,13 @@ async function notify(req, res) {
         body: String(req.body?.body || ''),
         tag: String(req.body?.tag || 'carrot-push'),
     };
-    const result = await sendToAllSubscriptions(payload);
+    const result = await (termux.isLocalRequest(req) ? sendLocal(payload) : sendWebSubscriptions(payload));
     res.json(result);
 }
 
 module.exports = {
+    capabilities,
+    localSettings,
     publicKey,
     subscribe,
     unsubscribe,
