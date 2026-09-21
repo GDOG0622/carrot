@@ -415,7 +415,7 @@ async function showSystemNotification(title, body) {
     // 显示很不可靠（常常静默不弹），registration.showNotification() 才稳定，
     // 也和 Web Push 的通知走同一条路。拿不到 SW 时再退回 new Notification()。
     try {
-        const { ensureNotifRegistration } = await import('./push-client.js?v=8.0.59');
+        const { ensureNotifRegistration } = await import('./push-client.js?v=8.0.60');
         const registration = await ensureNotifRegistration();
         if (registration?.showNotification) {
             await registration.showNotification(safeTitle, options);
@@ -642,7 +642,7 @@ function initNotificationSounds() {
             if (!document.hidden && document.hasFocus()) return;
             if (s.notifWebPush) {
                 try {
-                    const push = await import('./push-client.js?v=8.0.59');
+                    const push = await import('./push-client.js?v=8.0.60');
                     if (await push.getBackendPushMode() === 'termux-local') {
                         const result = await push.sendBackendPush(title, body);
                         if (!result?.ok) console.warn('[carrot] Termux 本地通知失败', result?.error);
@@ -655,7 +655,7 @@ function initNotificationSounds() {
                 localShown = await showSystemNotification(title, body);
             }
             if (s.notifWebPush && !localShown) {
-                import('./push-client.js?v=8.0.59')
+                import('./push-client.js?v=8.0.60')
                     .then((m) => m.sendBackendPush(title, body))
                     .catch(() => {});
             }
@@ -1355,7 +1355,7 @@ function bindPromptPane(wrapper, s) {
     const notifWebPushCb = document.getElementById('cip-ext-notif-webpush');
     const notifWebPushTestBtn = document.getElementById('cip-ext-notif-webpush-test');
 
-    import('./push-client.js?v=8.0.59').then((m) => m.getBackendPushMode()).then((mode) => {
+    import('./push-client.js?v=8.0.60').then((m) => m.getBackendPushMode()).then((mode) => {
         if (mode !== 'termux-local') return;
         const label = document.getElementById('cip-ext-notif-webpush-label');
         const help = document.getElementById('cip-ext-notif-webpush-help');
@@ -1369,7 +1369,7 @@ function bindPromptPane(wrapper, s) {
         if (notifWebPushCb.checked) {
             notifWebPushCb.disabled = true;
             try {
-                const { enableBackendPush } = await import('./push-client.js?v=8.0.59');
+                const { enableBackendPush } = await import('./push-client.js?v=8.0.60');
                 const result = await enableBackendPush();
                 s.notifWebPush = true;
                 saveSettings();
@@ -1388,7 +1388,7 @@ function bindPromptPane(wrapper, s) {
             s.notifWebPush = false;
             saveSettings();
             try {
-                const { disableBackendPush } = await import('./push-client.js?v=8.0.59');
+                const { disableBackendPush } = await import('./push-client.js?v=8.0.60');
                 await disableBackendPush();
                 setSoundStatus('后端通知已关闭');
             } catch (e) {
@@ -1408,7 +1408,7 @@ function bindPromptPane(wrapper, s) {
         notifWebPushTestBtn.disabled = true;
         if (notifWebPushCb) notifWebPushCb.disabled = true;
         try {
-            const { enableBackendPush, sendBackendPush, getBackendPushMode } = await import('./push-client.js?v=8.0.59');
+            const { enableBackendPush, sendBackendPush, getBackendPushMode } = await import('./push-client.js?v=8.0.60');
             // 还没订阅（没勾开关，或勾了但没订上）时，先自动订阅一次再测——省得报「没有已订阅的设备」
             if (!s.notifWebPush || !notifWebPushCb?.checked || await getBackendPushMode() === 'termux-local') {
                 setSoundStatus('正在开启后端推送…');
