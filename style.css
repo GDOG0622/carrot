@@ -1859,6 +1859,56 @@ emoji-picker {
     cursor: pointer;
 }
 
+/* 群聊与所有气泡预设共用协议，姓名和时间始终在正文气泡外。 */
+.carrot-group-line {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.carrot-group-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 8px;
+    margin: 0 4px 5px;
+    font: 12px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: inherit;
+    opacity: .7;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.carrot-group-sender { font-weight: 600; }
+.carrot-group-time { font-weight: 400; }
+.carrot-ios-user .carrot-group-header,
+.carrot-avatar-transparent-user .carrot-group-header { justify-content: flex-end; }
+
+.carrot-group-column {
+    min-width: 0;
+    max-width: min(78%, 640px, calc(100% - 60px));
+    text-align: left;
+}
+
+.carrot-group-column > .carrot-avatar-transparent-bubble {
+    box-sizing: border-box;
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.carrot-avatar-transparent-user .carrot-group-column { text-align: right; }
+.carrot-avatar-transparent-user .carrot-group-column > .carrot-avatar-transparent-bubble { text-align: left; }
+
+.carrot-group-initial-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: rgba(128, 128, 128, .18);
+    color: inherit;
+    font: 600 20px/1 sans-serif;
+}
+
 .carrot-ios-voice-summary {
     display: flex;
     align-items: center;

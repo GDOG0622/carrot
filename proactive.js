@@ -57,14 +57,41 @@ export function initProactive() {
     const chatsCache = new Map();
     let profiles = [];
     let syncTimer = null;
+    let syncQueue = Promise.resolve();
+    let syncRevision = 0;
+    let promptReady = false;
+    let promptStatus = '';
+
+    function setPromptStatus(text) {
+        promptStatus = text;
+        const el = container.querySelector('#cip-proactive-prompt-status');
+        if (el) el.textContent = text;
+    }
     // 正在编辑（未折叠）的方案 id；新建的方案默认进入编辑态
     const editingIds = new Set();
 
     function scheduleSync() {
         clearTimeout(syncTimer);
+        const revision = ++syncRevision;
+        // 即使后端尚未升级，也允许关闭已有的主动消息任务。
+        if (!promptReady && p.enabled) return;
+        setPromptStatus('已保存到设置，等待同步…');
         syncTimer = setTimeout(() => {
             const url = p.enabled ? `${API}/start` : `${API}/stop`;
-            postJson(url, p).catch((e) => console.warn('[carrot] 主动消息同步后端失败', e));
+            const snapshot = JSON.parse(JSON.stringify(p));
+            // 串行同步，避免旧请求晚到而覆盖用户刚输入的内容。
+            syncQueue = syncQueue.then(async () => {
+                if (revision !== syncRevision) return;
+                try {
+                    await postJson(url, snapshot);
+                    if (revision === syncRevision) setPromptStatus(snapshot.enabled
+                        ? '已同步，下一次生成使用新提示词'
+                        : '已保存，开启主动消息后生效');
+                } catch (e) {
+                    console.warn('[carrot] 主动消息同步后端失败', e);
+                    if (revision === syncRevision) setPromptStatus(`已保存，但同步失败：${e.message}；请检查后端后重试`);
+                }
+            });
         }, 500);
     }
 
@@ -337,8 +364,11 @@ export function initProactive() {
                 <div id="cip-proactive-model-status" style="font-size:.8em;color:#888;margin-top:.3em;"></div>
             </div>
             <div class="cip-ext-field">
-                <small>全局 Prompt（追加给每次主动消息生成，默认已带时间/线上线下判断逻辑）</small>
-                <textarea class="text_pole" id="cip-proactive-global-prompt" rows="3">${p.globalPrompt || ''}</textarea>
+                <label for="cip-proactive-trigger-prompt">主动消息提示词</label>
+                <small>编辑 +…+ 中间的文字，外层 + 自动添加。停止输入后自动保存并同步，无需点击保存；从下一次生成开始生效。</small>
+                <textarea class="text_pole" id="cip-proactive-trigger-prompt" rows="8" ${promptReady ? '' : 'disabled'}></textarea>
+                <div id="cip-proactive-prompt-status" role="status" style="font-size:.85em;margin-top:.3em;"></div>
+                <button class="menu_button" id="cip-proactive-prompt-retry" style="${NOWRAP}">重新同步</button>
             </div>
             <hr class="cip-ext-divider">
             <div id="cip-proactive-scheme-list"></div>
@@ -390,9 +420,20 @@ export function initProactive() {
             await loadModels(container.querySelector('#cip-proactive-model-status'));
             render();
         });
-        container.querySelector('#cip-proactive-global-prompt').addEventListener('change', (e) => {
-            p.globalPrompt = e.target.value;
+        const promptInput = container.querySelector('#cip-proactive-trigger-prompt');
+        // 用 value 而非 innerHTML，原样保留提示词中的 HTML、实体和换行。
+        promptInput.value = typeof p.triggerPrompt === 'string' ? p.triggerPrompt : '';
+        setPromptStatus(promptStatus);
+        promptInput.addEventListener('input', (e) => {
+            p.triggerPrompt = e.target.value;
             persist();
+        });
+        container.querySelector('#cip-proactive-prompt-retry').addEventListener('click', async () => {
+            if (!promptReady) {
+                await loadPrompt();
+                render();
+            }
+            if (promptReady) persist();
         });
         container.querySelector('#cip-proactive-add-scheme').addEventListener('click', () => {
             const scheme = makeScheme();
@@ -403,9 +444,26 @@ export function initProactive() {
         });
     }
 
+    async function loadPrompt() {
+        try {
+            const defaults = await getJson(`${API}/defaults`);
+            if (typeof defaults.triggerPrompt !== 'string') throw new Error('后端未提供默认提示词');
+            if (typeof p.triggerPrompt !== 'string') {
+                p.triggerPrompt = defaults.triggerPrompt;
+                saveSettings();
+            }
+            promptReady = true;
+            setPromptStatus('修改后自动保存并同步');
+        } catch (e) {
+            promptReady = false;
+            setPromptStatus(`无法加载提示词：${e.message}。请在 API 页同步后端并重启酒馆，再点击重新同步。`);
+        }
+    }
+
     (async function boot() {
         await loadUsers();
-        await Promise.all([loadChars(), loadProfiles()]);
+        await Promise.all([loadChars(), loadProfiles(), loadPrompt()]);
         render();
+        if (p.enabled && promptReady) scheduleSync();
     })();
 }

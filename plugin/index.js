@@ -209,6 +209,7 @@ async function init(router) {
 
     // char 主动发消息（后端驱动）
     const proactive = require('./proactive');
+    router.get('/proactive/defaults', proactive.defaultsHandler);
     router.get('/proactive/users', proactive.usersHandler);
     router.get('/proactive/chars', proactive.charsHandler);
     router.get('/proactive/chats', proactive.chatsHandler);

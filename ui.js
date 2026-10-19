@@ -240,6 +240,7 @@ export function createUI() {
             </section>
             <section id="cip-settings-bubble" class="cip-settings-section">
                 <div class="cip-bubble-manager">
+                    <div class="cip-settings-panel-note">所有预设均支持群聊格式：[Sender ID/Message/Time]，每条单独一行。发送者和时间显示在气泡上方；透明预设中，角色使用角色头像，其他 NPC 使用名字首字头像。</div>
                     <div class="cip-preset-bar">
                         <select id="cip-bubble-profile-select"></select>
                         <button id="cip-bubble-save-btn" class="cip-preset-icon-btn" title="保存到当前配置">

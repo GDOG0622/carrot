@@ -325,6 +325,64 @@ function createAvatarTransparentLine(documentRef, side) {
     return line;
 }
 
+function groupSenderIsCharacter(sender, element) {
+    try {
+        const ctx = window.SillyTavern?.getContext?.();
+        const message = getChatMessage(element);
+        const names = [
+            ctx?.characters?.[ctx?.characterId]?.name,
+            ctx?.name2,
+            !message?.is_user ? message?.name : null,
+        ];
+        return names.some(name => typeof name === 'string' && name.trim() === sender);
+    } catch { return false; }
+}
+
+function senderInitial(sender) {
+    // 首个可见字符：保留 emoji 的肤色、旗帜和组合字符。
+    if (typeof Intl.Segmenter === 'function') {
+        return new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(sender)[Symbol.iterator]().next().value?.segment || '';
+    }
+    return Array.from(sender)[0] || '';
+}
+
+function createGroupBubble(documentRef, token, side, preset, formatContext, element) {
+    const line = createTextBubble(documentRef, token, side, preset, {}, formatContext);
+    line.classList.add('carrot-group-line');
+    const header = documentRef.createElement('div');
+    header.className = 'carrot-group-header';
+    const sender = documentRef.createElement('span');
+    sender.className = 'carrot-group-sender';
+    sender.textContent = token.sender;
+    const time = documentRef.createElement('span');
+    time.className = 'carrot-group-time';
+    time.textContent = token.time;
+    header.append(sender, time);
+
+    if (preset === 'avatarTransparent') {
+        const avatar = line.querySelector('.carrot-avatar-transparent-avatar');
+        if (side !== 'user') {
+            if (groupSenderIsCharacter(token.sender, element)) {
+                // 原有自定义头像/头像框仍然优先，酒馆当前消息头像作为兜底。
+                const src = element?.closest?.('.mes')?.querySelector('.avatar img')?.getAttribute('src');
+                if (src) avatar.style.backgroundImage = `url(${JSON.stringify(src)})`;
+            } else {
+                avatar.classList.remove('custom-B_C_avar', 'B_C_avar');
+                avatar.classList.add('carrot-group-initial-avatar');
+                avatar.textContent = senderInitial(token.sender);
+            }
+        }
+        const bubble = line.querySelector('.carrot-avatar-transparent-bubble');
+        const column = documentRef.createElement('div');
+        column.className = 'carrot-group-column';
+        column.append(header, bubble);
+        line.appendChild(column);
+    } else {
+        line.querySelector('.carrot-ios-wrap').prepend(header);
+    }
+    return line;
+}
+
 function createAvatarTransparentShine(documentRef) {
     const shine = documentRef.createElement('span');
     shine.className = 'carrot-avatar-transparent-shine';
@@ -841,6 +899,28 @@ function parseHtmlBlock(lines, startIndex) {
     return null;
 }
 
+function parseGroupBubble(text) {
+    // 第一个 / 分隔 sender，最后一个 / 分隔时间；正文可含 URL、HTML 和嵌套方括号。
+    const match = text.match(/^\s*\[([^/\[\]|\r\n]+)\/([\s\S]+)\/([^/\[\]|\r\n]+)\]\s*$/);
+    if (!match || !match[1].trim() || !match[2].trim() || !match[3].trim()) return null;
+    return { type: 'groupBubble', sender: match[1].trim(), body: match[2].trim(), time: match[3].trim() };
+}
+
+function parseGroupBlock(lines, startIndex) {
+    if (!/^\s*\[[^/\[\]|\r\n]+\//.test(lines[startIndex])) return null;
+    const body = [];
+    for (let endIndex = startIndex; endIndex < lines.length; endIndex += 1) {
+        // 未闭合的上一条不能吞掉后续群聊消息。
+        if (endIndex > startIndex && /^\s*\[[^/\[\]|\r\n]+\//.test(lines[endIndex])) return null;
+        body.push(lines[endIndex]);
+        if (/\]\s*$/.test(lines[endIndex])) {
+            const token = parseGroupBubble(body.join('\n'));
+            if (token) return { token, endIndex };
+        }
+    }
+    return null;
+}
+
 function parseLine(line, isUser) {
     if (/<!--\s*([^<>]+?)\.qqr\s*-->/i.test(line)) {
         return {
@@ -999,6 +1079,14 @@ function parseTokens(text, isUser) {
             continue;
         }
 
+        const group = parseGroupBlock(lines, i);
+        if (group) {
+            tokens.push(group.token);
+            i = group.endIndex;
+            changed = true;
+            continue;
+        }
+
         const linkBlock = parseLinkBlock(lines, i, isUser);
         if (linkBlock) {
             tokens.push(linkBlock.token);
@@ -1112,7 +1200,9 @@ function renderTokens(element, tokens, isUser, documentRef, preset, sourceText) 
             continue;
         }
         const bubbleOptions = { hasTail: shouldRenderTail(tokens, index, preset) };
-        if (token.type === 'textBubble') {
+        if (token.type === 'groupBubble') {
+            rendered.appendChild(createGroupBubble(documentRef, token, side, preset, formatContext, element));
+        } else if (token.type === 'textBubble') {
             rendered.appendChild(createTextBubble(documentRef, token, side, preset, bubbleOptions, formatContext));
         } else if (token.type === 'voiceBubble') {
             rendered.appendChild(createVoiceBubble(documentRef, token, side, preset, bubbleOptions, formatContext));
