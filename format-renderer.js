@@ -283,14 +283,35 @@ function applyFormattedBody(el, text, formatContext) {
 
 function createTextBubble(documentRef, token, side, preset, options = {}, formatContext = null) {
     if (preset === 'avatarTransparent') {
-        return createAvatarTransparentBubble(documentRef, token, side, formatContext);
+        const line = createAvatarTransparentBubble(documentRef, token, side, formatContext);
+        decorateReplyBubble(documentRef, line, token, side, preset, formatContext);
+        return line;
     }
     const { line, wrap } = createBubbleShell(documentRef, side, 'text', options);
     const bubble = documentRef.createElement('div');
     bubble.className = 'carrot-ios-bubble';
     applyFormattedBody(bubble, token.body, formatContext);
     wrap.appendChild(bubble);
+    decorateReplyBubble(documentRef, line, token, side, preset, formatContext);
     return line;
+}
+
+function decorateReplyBubble(documentRef, line, token, side, preset, formatContext) {
+    const bubble = line.querySelector('.carrot-ios-bubble, .carrot-avatar-transparent-bubble');
+    if (side !== 'user') bubble.dataset.carrotReplyBody = token.body;
+    if (token.quote === undefined) return;
+    const quote = documentRef.createElement('blockquote');
+    quote.className = 'carrot-reply-quote';
+    applyFormattedBody(quote, token.quote, formatContext);
+    if (preset === 'avatarTransparent') {
+        const column = documentRef.createElement('div');
+        column.className = 'carrot-group-column';
+        column.append(bubble, quote);
+        line.appendChild(column);
+    } else {
+        // 引用放在 wrap 外，避免将气泡尾巴推到引用底部。
+        line.appendChild(quote);
+    }
 }
 
 function createAvatarTransparentBubble(documentRef, token, side, formatContext = null) {
@@ -978,6 +999,14 @@ function parseLine(line, isUser) {
                 body,
             };
         }
+        const separator = body.indexOf('>');
+        if (separator >= 0 && body.slice(0, separator).trim() && body.slice(separator + 1).trim()) {
+            return {
+                type: 'textBubble',
+                body: body.slice(0, separator).trim(),
+                quote: body.slice(separator + 1).trim(),
+            };
+        }
         return {
             type: 'textBubble',
             body,
@@ -1085,6 +1114,26 @@ function parseTokens(text, isUser) {
             i = group.endIndex;
             changed = true;
             continue;
+        }
+
+        // 面板中的回复和被引用文字均可换行；同一行闭合的消息仍独立解析。
+        const openingQuote = isUser ? '“' : '"';
+        const closingQuote = isUser ? '”' : '"';
+        if (lines[i].trimStart().startsWith(openingQuote) && !lines[i].trimEnd().endsWith(closingQuote)) {
+            let end = i + 1;
+            while (end < lines.length && !lines[end].trimStart().startsWith(openingQuote)) {
+                if (lines[end].trimEnd().endsWith(closingQuote)) {
+                    const token = parseLine(lines.slice(i, end + 1).join('\n'), isUser);
+                    if (token.type === 'textBubble') {
+                        tokens.push(token);
+                        i = end;
+                        changed = true;
+                    }
+                    break;
+                }
+                end += 1;
+            }
+            if (i === end) continue;
         }
 
         const linkBlock = parseLinkBlock(lines, i, isUser);

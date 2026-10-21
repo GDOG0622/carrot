@@ -17,6 +17,7 @@ export function createUI() {
         <div id="cip-panel-content">
              <div id="cip-text-content" class="cip-content-section active">
                 <div class="cip-sub-options-container"><button class="cip-sub-option-btn active" data-type="plain">纯文本</button><button class="cip-sub-option-btn" data-type="image">图片</button><button class="cip-sub-option-btn" data-type="video">视频</button><button class="cip-sub-option-btn" data-type="music">音乐</button><button class="cip-sub-option-btn" data-type="wallet">钱包</button></div>
+                <div id="cip-reply-preview" hidden><blockquote id="cip-reply-text"></blockquote><button id="cip-reply-cancel" type="button" aria-label="取消引用" title="取消引用">×</button></div>
                 <div class="cip-main-input-wrapper">
                     <textarea id="cip-main-input" placeholder="在此输入文字..."></textarea>
                 </div>

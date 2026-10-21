@@ -3058,3 +3058,33 @@ emoji-picker {
 .carrot-formatted-body > :last-child {
     margin-bottom: 0;
 }
+
+.cip-reply-menu {
+    position: fixed;
+    z-index: 10000;
+    padding: 5px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--SmartThemeBorderColor, #ddd);
+    background: var(--SmartThemeBlurTintColor, #fff);
+    color: var(--SmartThemeBodyColor, #444);
+    cursor: pointer;
+}
+.cip-reply-menu[hidden], #cip-reply-preview[hidden] { display: none; }
+#cip-reply-preview { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0 4px 8px; }
+#cip-reply-text { flex: 1; min-width: 0; max-height: 5em; overflow: auto; white-space: pre-wrap; }
+#cip-reply-cancel { flex: none; border: 0; background: transparent; color: inherit; cursor: pointer; padding: 4px 8px; }
+#cip-reply-text, .mes_text blockquote.carrot-reply-quote {
+    border: 0;
+    border-left: 3px solid currentColor;
+    padding: 0 0 0 12px;
+    margin: 6px 0 0;
+    font-size: 0.85em;
+    font-weight: normal;
+    line-height: 1.5;
+    opacity: 0.6;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.carrot-ios-line > blockquote.carrot-reply-quote { max-width: 78%; font-size: 13px; }
+.carrot-ios-user > blockquote.carrot-reply-quote { margin-left: auto; }
+[data-carrot-reply-body] { cursor: pointer; }

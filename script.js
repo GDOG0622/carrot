@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.61';
+    const V = 'v=8.0.62';
 
     // v8.0.50: 模块并发加载。以前是 15 个 `await import` 串成一条链，每个都要等上一个
     // 下载+执行完才发起下一个请求 —— 手机连远程酒馆时光排队就能耗掉一两秒。
@@ -478,6 +478,8 @@
     }
 
     // --- 4. 核心逻辑与事件监听 ---
+    const { initQuoteReply } = await import(`./quote-reply.js?${V}`);
+    const quoteReply = initQuoteReply({ inputPanel, mainInput, showPanel, switchTextSubType });
     let currentTextSubType = 'plain',
         stickerData = {},
         stickerLookup = new Map(),
@@ -539,6 +541,7 @@
         }
     }
     function switchTextSubType(t) {
+        quoteReply.setType(t);
         ((currentTextSubType = t),
             queryAll('#cip-text-content .cip-sub-option-btn').forEach((e) =>
                 e.classList.toggle('active', e.dataset.type === t),
@@ -649,10 +652,11 @@
     }
     function insertIntoSillyTavern(t) {
         const o = findSendTextarea();
-        if (!o) { alert('未能找到SillyTavern的输入框！'); return; }
+        if (!o) { alert('未能找到SillyTavern的输入框！'); return false; }
         const next = o.value + (o.value.trim() ? '\n' : '') + t;
         syncAllSendTextareas(next);
         o.focus();
+        return true;
     }
     function escapeInlineHtml(value) {
         return String(value ?? '')
@@ -1014,7 +1018,7 @@
                 if (mainInput.value.trim()) {
                     formattedText = formatTemplates.text[
                         currentTextSubType
-                    ].replace('{content}', mainInput.value);
+                    ].replace('{content}', () => currentTextSubType === 'plain' ? quoteReply.content(mainInput.value) : mainInput.value);
                     inputToClear = mainInput;
                 }
                 break;
@@ -1066,7 +1070,8 @@
         }
 
         if (formattedText) {
-            insertIntoSillyTavern(formattedText);
+            if (!insertIntoSillyTavern(formattedText)) return;
+            if (currentTextSubType === 'plain') quoteReply.clear();
             if (inputToClear) {
                 inputToClear.value = '';
             }
