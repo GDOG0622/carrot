@@ -3086,5 +3086,14 @@ emoji-picker {
     overflow-wrap: anywhere;
 }
 .carrot-ios-line > blockquote.carrot-reply-quote { max-width: 78%; font-size: 13px; }
-.carrot-ios-user > blockquote.carrot-reply-quote { margin-left: auto; }
+.mes_text .carrot-ios-user > blockquote.carrot-reply-quote,
+.mes_text .carrot-avatar-transparent-user blockquote.carrot-reply-quote {
+    border-left: 0;
+    border-right: 3px solid currentColor;
+    padding-left: 0;
+    padding-right: 12px;
+    margin-left: auto;
+    margin-right: 0;
+    text-align: right;
+}
 [data-carrot-reply-body] { cursor: pointer; }
