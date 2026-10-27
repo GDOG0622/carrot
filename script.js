@@ -3,7 +3,7 @@
     if (document.getElementById('cip-carrot-button')) return;
 
     // v8.0: 给所有动态 import 加版本号，每次发版改一下，强制浏览器更新
-    const V = 'v=8.0.64';
+    const V = 'v=8.0.63';
 
     // v8.0.50: 模块并发加载。以前是 15 个 `await import` 串成一条链，每个都要等上一个
     // 下载+执行完才发起下一个请求 —— 手机连远程酒馆时光排队就能耗掉一两秒。
@@ -47,7 +47,6 @@
         { initLinkVision },
         { buildCarrotImageToken, uploadCarrotImage },
         { initProactive },
-        { initCuriosity },
         { initBeads },
     ] = await Promise.all([
         import(`./ui.js?${V}`),
@@ -62,7 +61,6 @@
         import(`./link-vision.js?${V}`),
         import(`./image-upload.js?${V}`),
         import(`./proactive.js?${V}`),
-        import(`./curiosity.js?${V}`),
         import(`./beads.js?${V}`),
     ]);
 
@@ -1499,7 +1497,6 @@
             },
         });
         initProactive();
-        initCuriosity();
         initBeads({ documentRef: document, getSettings, saveSettings });
         switchStickerCategory(Object.keys(stickerData)[0] || '');
     }

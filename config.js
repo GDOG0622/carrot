@@ -87,16 +87,6 @@ const DEFAULT_SETTINGS = {
         apiModel: '',
         schemes: [],
     },
-    curiosity: {
-        enabled: false,
-        stUser: '',
-        apiProfileId: '',
-        apiModel: '',
-        customPrompt: null,
-        searxngUrl: '',
-        searxngPreferences: '',
-        schemes: [],
-    },
 };
 
 const legacyDefinitions = {
@@ -213,8 +203,6 @@ function normalizeSettingsShape(settings) {
     if (!isPlainObject(settings.bubblePresets)) settings.bubblePresets = {};
     if (!isPlainObject(settings.proactive)) settings.proactive = clone(DEFAULT_SETTINGS.proactive);
     if (!Array.isArray(settings.proactive.schemes)) settings.proactive.schemes = [];
-    if (!isPlainObject(settings.curiosity)) settings.curiosity = clone(DEFAULT_SETTINGS.curiosity);
-    if (!Array.isArray(settings.curiosity.schemes)) settings.curiosity.schemes = [];
     // beads.pendant 的详细结构（char/user 分别的 enabled/corner/size/rotation/effect）
     // 由 beads.js 自己的 state() 归一化（含旧版单一配置迁移），这里只保证顶层字段存在
     if (!isPlainObject(settings.beads)) settings.beads = clone(DEFAULT_SETTINGS.beads);
