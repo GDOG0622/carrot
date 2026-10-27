@@ -1,10 +1,11 @@
 {
   "name": "carrot-plugin",
-  "version": "8.0.54",
+  "version": "8.0.55",
   "description": "carrot SillyTavern server plugin backend",
   "main": "index.js",
   "private": true,
   "dependencies": {
+    "cheerio": "1.0.0-rc.12",
     "https-proxy-agent": "^7.0.6"
   }
 }

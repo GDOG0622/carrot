@@ -454,7 +454,7 @@ async function listModels(user, profileId) {
 
 // ───────────── AI 调用 ─────────────
 
-async function callAI(user, profileId, model, systemPrompt, messages, { jsonMode = false } = {}) {
+async function callAI(user, profileId, model, systemPrompt, messages, { jsonMode = false, signal } = {}) {
     const { apiUrl, apiKey, profileModel } = resolveApiConnection(user, profileId);
     const finalModel = model || profileModel;
     if (!finalModel) throw new Error('没有可用的模型：请在主动消息设置里选一个模型，或使用一个已配置模型的连接方案');
@@ -475,6 +475,7 @@ async function callAI(user, profileId, model, systemPrompt, messages, { jsonMode
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+        ...(signal ? { signal } : {}),
     });
 
     if (!res.ok) {
@@ -765,6 +766,10 @@ module.exports = {
     resumeAllUsersOnBoot,
     // 供测试/复用
     loadCharCard,
+    listUsers,
+    listChars,
+    getDataDir,
+    loadSettings,
     loadRecentContext,
     appendMessage,
     resolveApiConnection,

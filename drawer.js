@@ -1013,6 +1013,8 @@ export function injectExtensionDrawer({
                 </div>
                 <div id="cip-ext-pane-message" class="cip-ext-pane" style="display:none;">
                     <div id="proactive-container"></div>
+                    <hr class="cip-ext-divider">
+                    <div id="curiosity-container"></div>
                 </div>
             </div>
         </div>
@@ -1560,7 +1562,7 @@ async function initApiPane() {
 
         // 前后端版本一致性检查（copy 部署，升级后需同步后端）
         if (ready && st.version) {
-            const FE_VERSION = '8.0.54';
+            const FE_VERSION = '8.0.55';
             if (String(st.version) !== FE_VERSION) {
                 runtimeInfo.innerHTML += `<br><span style="color:#d33;">⚠ 后端 plugin v${st.version} 与前端 v${FE_VERSION} 不一致，请点击「${restartBtn.textContent}」</span>`;
             }

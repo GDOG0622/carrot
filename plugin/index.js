@@ -220,6 +220,18 @@ async function init(router) {
     // 服务器进程重启后，纯内存定时器会丢失；启动时把各用户上次启用的方案重新挂上
     proactive.resumeAllUsersOnBoot(push.sendToAllSubscriptions);
 
+    // 独立于主动消息的角色自主搜索。
+    const curiosity = require('./curiosity');
+    router.get('/curiosity/defaults', curiosity.defaultsHandler);
+    router.get('/curiosity/worlds', curiosity.worldsHandler);
+    router.get('/curiosity/status', curiosity.statusHandler);
+    router.post('/curiosity/revisions', curiosity.revisionsHandler);
+    router.post('/curiosity/editor', curiosity.editorHandler);
+    router.post('/curiosity/run-now', curiosity.runNowHandler);
+    router.post('/curiosity/start', curiosity.startHandler);
+    router.post('/curiosity/stop', curiosity.stopHandler);
+    curiosity.resume();
+
     console.log(`[carrot-plugin] v${manifest.version} 已加载，路由前缀 /api/plugins/carrot；运行环境 ${runtime.manager || '裸 node'}`);
     console.log(`[carrot-plugin] 提示：每次升级 carrot 前端后，可在 carrot API 面板点击“同步后端”`);
 }
